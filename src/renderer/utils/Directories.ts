@@ -1,0 +1,176 @@
+import path from 'path';
+import { Addon } from 'renderer/utils/InstallerConfiguration';
+import fs from 'fs';
+import settings from 'renderer/rendererSettings';
+import { app } from '@electron/remote';
+
+const TEMP_DIRECTORY_PREFIX = 'coalition-current-install';
+
+const TEMP_DIRECTORY_PREFIXES_FOR_CLEANUP = [
+  'flybywire_current_install',
+  'coalition_current_install',
+  TEMP_DIRECTORY_PREFIX,
+];
+export class Directories {
+  private static sanitize(suffix: string): string {
+    return path.normalize(suffix).replace(/^(\.\.(\/|\\|$))+/, '');
+  }
+
+  static appData(): string {
+    return app.getPath('appData');
+  }
+
+  static localAppData(): string {
+    return path.join(app.getPath('appData'), '..', 'Local');
+  }
+
+  static documentsDir(): string {
+    return app.getPath('documents');
+  }
+
+  static steamAppsCommon(): string {
+    return path.join('C:', 'Program Files (x86)', 'Steam', 'steamapps', 'common');
+  }
+
+  static xp12BasePath(): string {
+    return settings.get('mainSettings.xp12BasePath') as string;
+  }
+
+  static aircraftLocation(): string {
+    return settings.get('mainSettings.xp12AircraftPath') as string;
+  }
+
+  static customDataLocation(): string {
+    return settings.get('mainSettings.xp12CustomDataPath') as string;
+  }
+
+  static customSceneryLocation(): string {
+    return settings.get('mainSettings.xp12CustomSceneryPath') as string;
+  }
+
+  static inAircraftLocation(targetDir: string): string {
+    return path.join(Directories.aircraftLocation(), this.sanitize(targetDir));
+  }
+
+  static inAircraftPackage(addon: Addon, targetDir: string): string {
+    const baseDir = this.inAircraftLocation(this.sanitize(addon.targetDirectory));
+    return path.join(baseDir, this.sanitize(targetDir));
+  }
+
+  static inCustomDataLocation(targetDir: string): string {
+    return path.join(Directories.customDataLocation(), this.sanitize(targetDir));
+  }
+
+  static inCustomDataPackage(addon: Addon, targetDir: string): string {
+    const baseDir = this.inCustomDataLocation(this.sanitize(addon.targetDirectory));
+    return path.join(baseDir, this.sanitize(targetDir));
+  }
+
+  static inCustomSceneryLocation(targetDir: string): string {
+    return path.join(Directories.customSceneryLocation(), this.sanitize(targetDir));
+  }
+
+  static inCustomSceneryPackage(addon: Addon, targetDir: string): string {
+    const baseDir = this.inCustomSceneryLocation(this.sanitize(addon.targetDirectory));
+    return path.join(baseDir, this.sanitize(targetDir));
+  }
+
+  static installLocation(): string {
+    return settings.get('mainSettings.installPath') as string;
+  }
+
+  static inInstallLocation(targetDir: string): string {
+    return path.join(Directories.installLocation(), this.sanitize(targetDir));
+  }
+
+  static inInstallPackage(addon: Addon, targetDir: string): string {
+    const baseDir = this.inInstallLocation(this.sanitize(addon.targetDirectory));
+    return path.join(baseDir, this.sanitize(targetDir));
+  }
+
+  static tempLocation(): string {
+    return settings.get('mainSettings.separateTempLocation')
+      ? (settings.get('mainSettings.tempLocation') as string)
+      : (settings.get('mainSettings.installPath') as string);
+  }
+
+  static inTempLocation(targetDir: string): string {
+    return path.join(Directories.tempLocation(), this.sanitize(targetDir));
+  }
+
+  static inPackages(targetDir: string): string {
+    return path.join(this.xp12BasePath(), this.sanitize(targetDir));
+  }
+
+  static temp(): string {
+    const dir = path.join(Directories.tempLocation(), `${TEMP_DIRECTORY_PREFIX}-${(Math.random() * 1000).toFixed(0)}`);
+    if (fs.existsSync(dir)) {
+      return Directories.temp();
+    }
+    return dir;
+  }
+
+  static removeAllTemp(): void {
+    console.log('[CLEANUP] Removing all temp directories');
+
+    if (!fs.existsSync(Directories.tempLocation())) {
+      console.warn('[CLEANUP] Location of temporary folders does not exist. Aborting');
+      return;
+    }
+
+    try {
+      const dirents = fs
+        .readdirSync(Directories.tempLocation(), { withFileTypes: true })
+        .filter((dirEnt) => dirEnt.isDirectory())
+        .filter((dirEnt) => TEMP_DIRECTORY_PREFIXES_FOR_CLEANUP.some((it) => dirEnt.name.startsWith(it)));
+
+      for (const dir of dirents) {
+        const fullPath = Directories.inTempLocation(dir.name);
+
+        console.log('[CLEANUP] Removing', fullPath);
+        try {
+          fs.rmSync(fullPath, { recursive: true });
+          console.log('[CLEANUP] Removed', fullPath);
+        } catch (e) {
+          console.error('[CLEANUP] Could not remove', fullPath, e);
+        }
+      }
+
+      console.log('[CLEANUP] Finished removing all temp directories');
+    } catch (e) {
+      console.error('[CLEANUP] Could not scan folder', Directories.tempLocation(), e);
+    }
+  }
+
+  static removeAlternativesForAddon(addon: Addon): void {
+    addon.alternativeNames?.forEach((altName) => {
+      const altDir = Directories.inInstallLocation(altName);
+
+      if (fs.existsSync(altDir)) {
+        console.log('Removing alternative', altDir);
+        fs.rmSync(altDir, { recursive: true });
+      }
+    });
+  }
+
+  static isFragmenterInstall(target: string | Addon): boolean {
+    const targetDir = typeof target === 'string' ? target : Directories.inInstallLocation(target.targetDirectory);
+
+    return fs.existsSync(path.join(targetDir, 'install.json'));
+  }
+
+  static isGitInstall(target: string | Addon): boolean {
+    const targetDir = typeof target === 'string' ? target : Directories.inInstallLocation(target.targetDirectory);
+
+    try {
+      const symlinkPath = fs.readlinkSync(targetDir);
+      if (symlinkPath && fs.existsSync(path.join(symlinkPath, '/../../../.git'))) {
+        console.log('Is git repo', targetDir);
+        return true;
+      }
+    } catch {
+      console.log('Is not git repo', targetDir);
+      return false;
+    }
+  }
+}
