@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@100;200;400;600&display=swap" rel="stylesheet">
 
     <title>Coalition of Freeware Developers - Installer</title>
-    
+
     <!-- Polyfill for Node.js globals before main app loads -->
     <script>
       // Ensure global and module are available before any modules load
@@ -20,7 +20,7 @@
       if (typeof module === 'undefined') {
         window.module = {};
       }
-      
+
       // Polyfill process before any modules can access it
       if (typeof process === 'undefined') {
         window.process = {
@@ -39,7 +39,7 @@
           node: false
         };
       }
-      
+
       // Ensure these are available on global as well
       if (window.global && !window.global.process) {
         window.global.process = window.process;
@@ -47,7 +47,7 @@
       if (window.global && !window.global.Buffer && typeof Buffer !== 'undefined') {
         window.global.Buffer = Buffer;
       }
-      
+
       // Buffer and process should be available via vite polyfills, but ensure fallback
       if (typeof Buffer === 'undefined' && window.global && window.global.Buffer) {
         window.Buffer = window.global.Buffer;

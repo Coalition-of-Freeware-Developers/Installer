@@ -4,7 +4,6 @@ import ReactMarkdown from 'react-markdown';
 import { Addon, AddonTrack, ConfigurationAspect } from 'renderer/utils/InstallerConfiguration';
 import { Track, Tracks } from './TrackSelector';
 import { ConfigurationAspectDisplay } from 'renderer/components/AddonSection/Configure/ConfigurationAspectDisplay';
-
 import './index.css';
 import rehypeRaw from 'rehype-raw';
 

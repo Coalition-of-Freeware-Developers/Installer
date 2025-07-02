@@ -7,7 +7,6 @@ import { Addon, AddonCategoryDefinition, AddonTrack } from 'renderer/utils/Insta
 import { NavLink, Redirect, Route, useHistory, useParams } from 'react-router-dom';
 import { InfoCircle, JournalText, Sliders } from 'react-bootstrap-icons';
 import settings, { useSetting } from 'renderer/rendererSettings';
-
 import { AddonBar, AddonBarItem } from '../App/AddonBar';
 import { NoAvailableAddonsSection } from '../NoAvailableAddonsSection';
 import { ReleaseNotes } from './ReleaseNotes';
@@ -18,7 +17,6 @@ import { Button, ButtonType } from 'renderer/components/Button';
 import { MainActionButton } from 'renderer/components/AddonSection/MainActionButton';
 import { ApplicationStatus, InstallStatus, InstallStatusCategories } from 'renderer/components/AddonSection/Enums';
 import { setApplicationStatus } from 'renderer/redux/features/applicationStatus';
-
 import { Configure } from 'renderer/components/AddonSection/Configure';
 import { InstallManager } from 'renderer/utils/InstallManager';
 import { StateSection } from 'renderer/components/AddonSection/StateSection';
@@ -87,7 +85,6 @@ export const AddonSection = (): JSX.Element => {
   });
 
   const [hiddenAddon, setHiddenAddon] = useState<Addon | undefined>(undefined);
-
   const installedTracks = useAppSelector((state) => state.installedTracks);
   const selectedTracks = useAppSelector((state) => state.selectedTracks);
   const installStates = useAppSelector((state) => state.installStatus);
@@ -382,13 +379,15 @@ export const AddonSection = (): JSX.Element => {
             <Route path={`/addon-section/${publisherName}/main`}>
               <div className="flex h-full flex-col">
                 <div
-                  className="relative shrink-0 bg-cover bg-center"
+                  className="relative shrink-0 bg-no-repeat bg-center"
                   style={{
                     height: '44vh',
                     backgroundImage:
                       (selectedAddon.backgroundImageShadow ?? true)
                         ? `linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.3)), url(${selectedAddon.backgroundImageUrls[0]})`
                         : `url(${selectedAddon.backgroundImageUrls[0]})`,
+                    backgroundPosition: 'center center',
+                    backgroundSize: 'cover auto',
                   }}
                 >
                   <div className="absolute bottom-0 left-0 flex w-full flex-row items-end gap-x-1 bg-navy">
