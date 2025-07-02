@@ -1,0 +1,32 @@
+.error-container {
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  row-gap: 1.25rem;
+  background-color: var(--color-brand-navy-main);
+  color: #f3f4f6;
+}
+
+.error-title {
+  font-size: 3rem;
+  font-weight: 600;
+}
+
+.error-description {
+  width: 60%;
+  text-align: center;
+  font-size: 1.5rem;
+}
+
+.error-stack {
+  margin-bottom: 0;
+  width: 60%;
+  overflow: scroll;
+  border-radius: 0.5rem;
+  background-color: #374151;
+  padding: 1.5rem 1rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 1.5rem;
+}

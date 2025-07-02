@@ -1,9 +1,8 @@
 import React, { FC, memo } from 'react';
 import { Addon, Publisher, PublisherButton } from 'renderer/utils/InstallerConfiguration';
-import { shell } from 'electron';
 import * as BootstrapIcons from 'react-bootstrap-icons';
 import { ArrowRepeat, Check2, CloudArrowDownFill, Icon } from 'react-bootstrap-icons';
-import { useHistory, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAppSelector } from 'renderer/redux/store';
 import { AircraftSectionURLParams } from '../AddonSection';
 import { useIsDarkTheme } from 'renderer/rendererSettings';
@@ -138,18 +137,10 @@ interface AddonBarPublisherButtonProps {
 }
 
 const AddonBarPublisherButton: FC<AddonBarPublisherButtonProps> = ({ button }) => {
-  const history = useHistory();
-
   const handleClick = async () => {
     switch (button.action) {
       case 'openBrowser':
-        await shell.openExternal(button.url);
-        break;
-      case 'internal':
-        switch (button.call) {
-          case 'fbw-local-api-config':
-            history.push(`/addon-section/FlyByWire Simulations/configuration/fbw-local-api-config`);
-        }
+        await window.electronAPI?.remote.shellOpenExternal(button.url);
         break;
     }
   };

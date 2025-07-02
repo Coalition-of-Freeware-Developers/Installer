@@ -18,21 +18,13 @@ export const defaultConfiguration: Configuration = {
           key: 'scenery',
           title: 'Scenery',
         },
-        {
-          kind: 'externalApp',
-          key: 'simbridge-app',
-          prettyName: 'SimBridge',
-          detectionType: 'http',
-          url: 'http://localhost:8380/health',
-          killUrl: 'http://localhost:8380/health/kill',
-          killMethod: 'GET',
-        },
+
         {
           kind: 'externalApp',
           key: 'xp12',
-          prettyName: 'XP12',
+          prettyName: 'X-Plane 12',
           detectionType: 'tcp',
-          port: 500,
+          port: 49000,
         },
       ],
       addons: [
@@ -80,10 +72,10 @@ export const defaultConfiguration: Configuration = {
               description:
                 'Stable is our variant that has the least bugs and best performance. ' +
                 'This version will not always be up to date but we guarantee its compatibility ' +
-                'with each major patch from MSFS.',
+                'with each major patch from X-Plane 12.',
               isExperimental: false,
               releaseModel: {
-                type: 'fragmenter',
+                type: 'CDN',
               },
             },
             {
@@ -109,18 +101,11 @@ export const defaultConfiguration: Configuration = {
                 'branch on Github. Please visit our discord for support.',
               isExperimental: false,
               releaseModel: {
-                type: 'fragmenter',
+                type: 'CDN',
               },
             },
           ],
-          dependencies: [
-            {
-              addon: '@flybywiresim/simbridge',
-              optional: true,
-              modalText:
-                'SimBridge allows the A32NX to expose remote tools like the Web MCDU, as well as use the external terrain database.',
-            },
-          ],
+          dependencies: [],
           incompatibleAddons: [
             // title: the exact title as it appears in the manifest.json
             // creator: the exact creator as it appears in the manifest.json
@@ -144,7 +129,7 @@ export const defaultConfiguration: Configuration = {
               },
             ],
           },
-          disallowedRunningExternalApps: ['@/msfs', '@/mcdu-server'],
+          disallowedRunningExternalApps: ['@/xp12'],
         },
         {
           name: 'A380X',
@@ -188,7 +173,7 @@ export const defaultConfiguration: Configuration = {
                 '[System Requirements](https://docs.flybywiresim.com/aircraft/install/installation/#estimated-system-requirements-for-a380x)',
               isExperimental: false,
               releaseModel: {
-                type: 'fragmenter',
+                type: 'CDN',
               },
             },
             {
@@ -204,7 +189,7 @@ export const defaultConfiguration: Configuration = {
                 '* HIGH or lower texture resolution setting recommended \n\n',
               isExperimental: false,
               releaseModel: {
-                type: 'fragmenter',
+                type: 'CDN',
               },
             },
             {
@@ -225,7 +210,7 @@ export const defaultConfiguration: Configuration = {
                 '* or are otherwise limited by your graphics card VRAM amount. ',
               isExperimental: false,
               releaseModel: {
-                type: 'fragmenter',
+                type: 'CDN',
               },
             },
             {
@@ -241,7 +226,7 @@ export const defaultConfiguration: Configuration = {
                 '* HIGH or lower texture resolution setting recommended \n\n',
               isExperimental: false,
               releaseModel: {
-                type: 'fragmenter',
+                type: 'CDN',
               },
             },
           ],
@@ -251,7 +236,7 @@ export const defaultConfiguration: Configuration = {
             // packageVersion syntax follows: https://www.npmjs.com/package/semver
             // description: a short description of why the addon is incompatible
           ],
-          disallowedRunningExternalApps: ['@/msfs'],
+          disallowedRunningExternalApps: ['@/xp12'],
         },
         {
           name: 'KFBW',
@@ -290,61 +275,6 @@ export const defaultConfiguration: Configuration = {
                 'FlyByWire Headquarters is transformed into a winter wonderland - complete with a plethora of festive decorations in addition to the standard progress showcase.',
             },
           ],
-        },
-        {
-          name: 'SimBridge',
-          key: 'simbridge',
-          category: '@simbridge',
-          repoOwner: 'flybywiresim',
-          repoName: 'simbridge',
-          aircraftName: 'FBW SimBridge',
-          titleImageUrl: 'https://flybywirecdn.com/installer/media-assets/addon-titles/fbw-simbridge/dark.svg',
-          titleImageUrlSelected: 'https://flybywirecdn.com/installer/media-assets/addon-titles/fbw-simbridge/light.svg',
-          enabled: true,
-          backgroundImageUrls: ['https://flybywirecdn.com/installer/media-assets/addon-headers/fbw-simbridge/0.png'],
-          backgroundImageShadow: false,
-          shortDescription: 'Airbus A380-800',
-          description: `<span style="color: rgb(255, 106, 0);">&#9888; Important: Starting with version 0.6.0, custom resources such as PDF Charts and Company Routes must be stored in the Documents folder (typically located at \`C:\\Users\\<Username>\\Documents\\FlyByWireSim\\Simbridge\\resources)\`. <br> Please ensure you back up your files before updating. After the update, transfer your files to this new location to keep them safe from future updates. You can also use the Resources button in the About section of the installer to locate the folder.</span> \n\nSimBridge is an external app that enables FlyByWire Simulations aircraft to communicate outside your simulator. From remote displays to external terrain display rendering, it is used for a variety of optional features.`,
-          targetDirectory: 'flybywire-externaltools-simbridge',
-          tracks: [
-            {
-              name: 'Release',
-              key: 'release',
-              releaseModel: {
-                type: 'githubRelease',
-              },
-              url: 'https://flybywirecdn.com/addons/simbridge/release/',
-              alternativeUrls: [
-                // move Bunny CDN users to Cloudflare
-                'https://cdn.flybywiresim.com/addons/simbridge/release/',
-              ],
-              isExperimental: false,
-              description: `<span style="color: rgb(255, 106, 0);">&#9888; Important: Starting with version 0.6.0, custom resources such as PDF Charts and Company Routes must be stored in the Documents folder (typically located at \`C:\\Users\\<Username>\\Documents\\FlyByWireSim\\Simbridge\\resources)\`. <br> Please ensure you back up your files before updating. After the update, transfer your files to this new location to keep them safe from future updates. You can also use the Resources button in the About section of the installer to locate the folder.</span> \n\nSimBridge is an external app that enables FlyByWire Simulations aircraft to communicate outside your simulator. From remote displays to external terrain display rendering, it is used for a variety of optional features.`,
-            },
-          ],
-          disallowedRunningExternalApps: ['@/simbridge-app'],
-          backgroundService: {
-            executableFileBasename: 'fbw-simbridge',
-            runCheckExternalAppRef: '@/simbridge-app',
-            commandLineArgs: ['--hide'],
-          },
-          myInstallPage: {
-            links: [
-              {
-                url: 'https://docs.flybywiresim.com/tools/simbridge/',
-                title: 'Documentation',
-              },
-            ],
-            directories: [
-              {
-                location: {
-                  in: 'documents',
-                  path: 'FlyByWireSim/Simbridge/resources',
-                },
-                title: 'Resources',
-              },
-            ],
-          },
         },
       ],
       buttons: [
@@ -417,7 +347,7 @@ export const defaultConfiguration: Configuration = {
               description:
                 'Stable is our variant that has the least bugs and best performance. ' +
                 'This version will not always be up to date but we guarantee its compatibility ' +
-                'with each major patch from MSFS.',
+                'with each major patch from X-Plane 12.',
               isExperimental: false,
               releaseModel: {
                 type: 'githubRelease',
@@ -450,140 +380,6 @@ export const defaultConfiguration: Configuration = {
           action: 'openBrowser',
           url: 'https://twitter.com/Salty_Sim',
           inline: true,
-        },
-      ],
-    },
-    {
-      name: 'FSLTL',
-      key: 'fsltl',
-      logoUrl: 'https://flybywirecdn.com/installer/media-assets/publisher-icons/fsltl/0.png',
-      logoSize: 36,
-      defs: [
-        {
-          kind: 'externalApp',
-          key: 'traffic-injector-app',
-          prettyName: 'FSLTL Traffic Injector',
-          detectionType: 'http',
-          url: 'http://localhost:42888',
-          killUrl: 'http://localhost:42888/kill',
-          killMethod: 'POST',
-        },
-        {
-          kind: 'externalApp',
-          key: 'msfs',
-          prettyName: 'MSFS',
-          detectionType: 'tcp',
-          port: 500,
-        },
-      ],
-      addons: [
-        {
-          key: 'traffic-base-models',
-          name: 'FSLTL Traffic',
-          aircraftName: 'FSLTL Traffic',
-          titleImageUrl: 'https://flybywirecdn.com/installer/media-assets/addon-titles/fsltl/base-models/dark.svg',
-          titleImageUrlSelected:
-            'https://flybywirecdn.com/installer/media-assets/addon-titles/fsltl/base-models/light.svg',
-          enabled: true,
-          backgroundImageUrls: ['https://flybywirecdn.com/installer/media-assets/addon-headers/fsltl/traffic/0.png'],
-          shortDescription: 'FSLTL Traffic Base Models',
-          description:
-            'FSLTL is a free standalone real-time online traffic overhaul and VATSIM model-matching solution for MSFS.\n\n' +
-            'Utilising native glTF models and MSFS independent online IFR/VFR traffic injection system with stock ATC interaction based on Flightradar24.\n\n' +
-            'This is the base model / livery pack required for FSLTL Injector, MSFS default live traffic or VATSIM use.',
-          targetDirectory: 'fsltl-traffic-base',
-          alternativeNames: [],
-          tracks: [
-            {
-              name: 'Stable',
-              key: 'release',
-              url: 'https://github.com/FSLiveTrafficLiveries/base/releases/latest/download/',
-              isExperimental: false,
-              releaseModel: {
-                type: 'CDN',
-              },
-              description:
-                'Stable release of the aircraft models, liveries and VMR file.\n\n' +
-                'This packages is required to see matched models / liveries if you are using FSLTL Injector, MSFS default live traffic or VATSIM.\n\n' +
-                'A vmr file is provided in the package for VATSIM client use.',
-            },
-          ],
-          disallowedRunningExternalApps: ['@/msfs'],
-        },
-        {
-          key: 'traffic-injector',
-          name: 'FSLTL Injector',
-          aircraftName: 'FSLTL Traffic',
-          titleImageUrl: 'https://flybywirecdn.com/installer/media-assets/addon-titles/fsltl/injector/dark.svg',
-          titleImageUrlSelected:
-            'https://flybywirecdn.com/installer/media-assets/addon-titles/fsltl/injector/light.svg',
-          enabled: true,
-          backgroundImageUrls: ['https://flybywirecdn.com/installer/media-assets/addon-headers/fsltl/traffic/0.png'],
-          shortDescription: 'FSLTL Traffic Injector Software',
-          description:
-            'FSLTL Live Traffic Injector - giving you a more immersive experience at airports globally!\n\n' +
-            '- Live IFR and VFR traffic based on Flightradar24\n\n' +
-            '- Parked aircraft based on historic real data for immersive full airports\n\n' +
-            '- Ability to have any combination of IFR, VFR and parked aircraft',
-          targetDirectory: 'fsltl-traffic-injector',
-          tracks: [
-            {
-              name: 'Stable',
-              key: 'release',
-              url: 'https://github.com/FSLiveTrafficLiveries/FSLTL_Injector_Releases/releases/latest/download/',
-              isExperimental: false,
-              releaseModel: {
-                type: 'fragmenter',
-              },
-              description:
-                'Stable version of the FSLTL Traffic Injector for use on stable versions of MSFS.\n\n' +
-                'Follow the user guide at https://www.fslivetrafficliveries.com/user-guide/ before use.',
-            },
-            {
-              name: 'Experimental',
-              key: 'development',
-              url: 'https://github.com/FSLiveTrafficLiveries/FSLTL_Injector_Releases/releases/download/beta/',
-              isExperimental: true,
-              warningContent:
-                'No support is offered for this release, it is a preview of features that may be included in future releases.',
-              releaseModel: {
-                type: 'fragmenter',
-              },
-              description:
-                'Experimental Release that includes features that are not yet ready for stable release.\n\n' +
-                'You can provide feedback on these new features in the FSLTL Discord.\n\n' +
-                'No support is offered for issues with this release, new FSLTL users should use stable.',
-            },
-          ],
-          backgroundService: {
-            executableFileBasename: 'fsltl-trafficinjector',
-            runCheckExternalAppRef: '@/traffic-injector-app',
-            enableAutostartConfiguration: false,
-          },
-          disallowedRunningExternalApps: ['@/traffic-injector-app'],
-        },
-      ],
-      buttons: [
-        {
-          text: 'Website',
-          action: 'openBrowser',
-          url: 'https://www.fslivetrafficliveries.com/',
-        },
-        {
-          text: 'Discord',
-          action: 'openBrowser',
-          url: 'https://discord.gg/suMR56wCrn',
-          inline: true,
-        },
-        {
-          text: 'User Guide',
-          action: 'openBrowser',
-          url: 'https://www.fslivetrafficliveries.com/user-guide/',
-        },
-        {
-          text: 'Support FAQ',
-          action: 'openBrowser',
-          url: 'https://www.fslivetrafficliveries.com/support-faq/',
         },
       ],
     },

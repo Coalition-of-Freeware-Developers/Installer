@@ -1,6 +1,6 @@
 /*
  * FBW Aileron Design Language SCSS
- * v1.0 - CoherentGT compatible - made for TailwindCSS v3.0 with @flybywiresim/tailwind-config v(TBD)
+ * v1.0 - CoherentGT compatible
  */
 
 :root {
@@ -36,21 +36,32 @@
 }
 
 .modal {
-    @apply p-8 w-5/12 max-w-screen-sm text-quasi-white rounded-xl;
-
+    padding: 2rem;
+    width: 41.666667%;
+    max-width: 640px;
+    color: var(--color-brand-quasi-white);
+    border-radius: 0.75rem;
     background-color: var(--color-brand-navy-dark);
-
-    @apply border-2;
-    border-color: var(--color-brand-navy-main);
+    border: 2px solid var(--color-brand-navy-main);
 
     .modal-title {
-        @apply text-5xl text-quasi-white font-manrope font-bold;
+        font-size: 3rem;
+        color: var(--color-brand-quasi-white);
+        font-family: 'Manrope', sans-serif;
+        font-weight: 700;
     }
 }
 
 .button {
-    @apply text-3xl text-quasi-white font-inter font-bold px-5 border-2 rounded-md transition-colors duration-150;
-
+    font-size: 1.875rem;
+    color: var(--color-brand-quasi-white);
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    border: 2px solid transparent;
+    border-radius: 0.375rem;
+    transition: color 150ms, background-color 150ms, border-color 150ms;
     height: 2.35em;
 
     @mixin color($background, $textColorHover: true, $borderColorHoverValue: $background) {
@@ -67,7 +78,7 @@
     }
 
     &, &.button-neutral {
-        @apply font-semibold;
+        font-weight: 600;
 
         @include color(var(--color-button-theme-neutral), false, var(--color-button-theme-neutral-confirmation));
     }
@@ -91,6 +102,7 @@
     }
 
     &[disabled] {
-        @apply pointer-events-none opacity-50;
+        pointer-events: none;
+        opacity: 0.5;
     }
 }

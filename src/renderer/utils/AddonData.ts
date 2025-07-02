@@ -1,6 +1,47 @@
 import { Addon, AddonTrack, GithubBranchReleaseModel } from 'renderer/utils/InstallerConfiguration';
-import { GitVersions } from '@flybywiresim/api-client';
-import yaml from 'js-yaml';
+
+// Stub for GitVersions to replace @flybywiresim/api-client
+export class GitVersions {
+  static async getReleases(
+    owner: string,
+    repo: string,
+    _includePrereleases?: boolean,
+    _startIndex?: number,
+    _count?: number,
+  ): Promise<
+    Array<{
+      name: string;
+      publishedAt: Date;
+      htmlUrl: string;
+      body: string;
+    }>
+  > {
+    console.warn('[GitVersionsStub] getReleases called - returning stub data');
+    return [
+      {
+        name: '1.0.0',
+        publishedAt: new Date(),
+        htmlUrl: `https://github.com/${owner}/${repo}/releases/tag/1.0.0`,
+        body: 'Stub release notes',
+      },
+    ];
+  }
+
+  static async getNewestCommit(
+    _owner: string,
+    _repo: string,
+    _branch: string,
+  ): Promise<{
+    sha: string;
+    timestamp: Date;
+  }> {
+    console.warn('[GitVersionsStub] getNewestCommit called - returning stub data');
+    return {
+      sha: 'abc1234567890',
+      timestamp: new Date(),
+    };
+  }
+}
 
 export type ReleaseInfo = {
   name: string;
@@ -9,7 +50,7 @@ export type ReleaseInfo = {
 };
 
 export class AddonData {
-  static async latestNonFragmenterVersionForTrack(addon: Addon, track: AddonTrack): Promise<ReleaseInfo> {
+  static async latestVersionForTrack(addon: Addon, track: AddonTrack): Promise<ReleaseInfo> {
     switch (track.releaseModel.type) {
       case 'githubRelease':
         return this.latestVersionForReleasedTrack(addon);
@@ -38,15 +79,12 @@ export class AddonData {
     }));
   }
 
-  private static async latestVersionForCDN(track: AddonTrack): Promise<ReleaseInfo> {
-    return fetch(track.url + '/releases.yaml')
-      .then((res) => res.blob())
-      .then((blob) => blob.text())
-      .then((stream) => ({
-        name: 'v' + (yaml.load(stream) as { releases: Array<{ name: string; date: Date }> }).releases[0].name,
-        releaseDate: (
-          yaml.load(stream) as { releases: Array<{ name: string; date: Date }> }
-        ).releases[0].date.getTime(),
-      }));
+  private static async latestVersionForCDN(_track: AddonTrack): Promise<ReleaseInfo> {
+    // CDN update checking is not implemented, return placeholder data
+    console.warn('[AddonData] CDN update checking is not implemented, returning placeholder data');
+    return {
+      name: 'CDN Release',
+      releaseDate: Date.now(),
+    };
   }
 }

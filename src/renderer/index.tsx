@@ -1,45 +1,30 @@
+// Import polyfills FIRST before any other imports
+import './polyfills';
+
 import React from 'react';
 import ReactDOM from 'react-dom';
-import * as Sentry from '@sentry/electron/renderer';
-import { browserTracingIntegration } from '@sentry/browser';
 import { Provider } from 'react-redux';
 import App from 'renderer/components/App';
 import { Configuration, InstallerConfiguration } from 'renderer/utils/InstallerConfiguration';
-import { ipcRenderer } from 'electron';
 import { Directories } from 'renderer/utils/Directories';
-import channels from 'common/channels';
 import { MemoryRouter } from 'react-router-dom';
 import { store } from 'renderer/redux/store';
 import { setConfiguration } from './redux/features/configuration';
-import { GitVersions } from '@flybywiresim/api-client';
+import { GitVersions } from 'renderer/utils/AddonData';
 import { addReleases } from 'renderer/redux/features/releaseNotes';
 import { ModalProvider } from 'renderer/components/Modal';
-import { setSentrySessionID } from 'renderer/redux/features/sentrySessionID';
-import packageJson from '../../package.json';
 
 import 'simplebar-react/dist/simplebar.min.css';
 import './index.scss';
 import { Button, ButtonType } from 'renderer/components/Button';
 
-// Setup Sentry
-Sentry.init({
-  release: packageJson.version,
-  integrations: [browserTracingIntegration()],
-  tracesSampleRate: 1.0,
-  beforeBreadcrumb: (event) => {
-    if (event.category === 'fetch' && event.data.url.startsWith('http://localhost')) {
-      return null;
-    }
+const console = globalThis.console;
+const window = globalThis.window as typeof globalThis & { electronAPI?: unknown; electronStore?: unknown };
+const document = globalThis.document;
 
-    return event;
-  },
-  // sampleRate: 0.1,
-});
-
-// Request Sentry session ID
-ipcRenderer.invoke(channels.sentry.requestSessionID).then((sessionID) => {
-  store.dispatch(setSentrySessionID(sessionID));
-});
+console.log('Renderer script is starting...');
+console.log('electronAPI available:', typeof window.electronAPI !== 'undefined');
+console.log('electronStore available:', typeof window.electronStore !== 'undefined');
 
 // Obtain configuration and use it
 InstallerConfiguration.obtain()
@@ -71,7 +56,10 @@ InstallerConfiguration.obtain()
 
     console.log('Using this configuration:', config);
 
-    Directories.removeAllTemp();
+    // Clean up temp directories asynchronously - don't block the UI
+    Directories.removeAllTemp().catch((error) => {
+      console.error('Failed to clean up temp directories:', error);
+    });
 
     ReactDOM.render(
       <Provider store={store}>
@@ -86,17 +74,21 @@ InstallerConfiguration.obtain()
   })
   .catch((error: Error) => {
     ReactDOM.render(
-      <div className="flex h-screen flex-col items-center justify-center gap-y-5 bg-navy text-gray-100">
-        <span className="text-5xl font-semibold">Something went very wrong.</span>
-        <span className="w-3/5 text-center text-2xl">
+      <div className="error-container">
+        <span className="error-title">Something went very wrong.</span>
+        <span className="error-description">
           We could not configure your installer. Please seek support on the Discord #support channel or on GitHub and
           provide a screenshot of the following information:
         </span>
-        <pre className="mb-0 w-3/5 overflow-scroll rounded-lg bg-gray-700 px-6 py-2.5 font-mono text-2xl">
-          {error.stack}
-        </pre>
+        <pre className="error-stack">{error.stack}</pre>
 
-        <Button type={ButtonType.Neutral} onClick={() => ipcRenderer.send(channels.window.close)}>
+        <Button
+          type={ButtonType.Neutral}
+          onClick={() => {
+            const api = window.electronAPI as { closeWindow?: () => void } | undefined;
+            api?.closeWindow?.();
+          }}
+        >
           Close the installer
         </Button>
       </div>,

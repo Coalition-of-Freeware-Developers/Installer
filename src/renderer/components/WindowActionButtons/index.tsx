@@ -1,13 +1,13 @@
 import React from 'react';
-import { shell } from 'electron';
-import { ipcRenderer } from 'electron';
 import { WindowsControl } from 'react-windows-controls';
-import channels from 'common/channels';
 import { Directories } from 'renderer/utils/Directories';
 import { store } from 'renderer/redux/store';
 import { InstallStatusCategories } from 'renderer/components/AddonSection/Enums';
 import { AlertModal, useModals } from 'renderer/components/Modal';
 import { ExclamationCircle } from 'react-bootstrap-icons';
+
+const console = globalThis.console;
+const window = globalThis.window;
 
 export type ButtonProps = { id?: string; className?: string; onClick?: () => void; isClose?: boolean };
 
@@ -26,14 +26,15 @@ export const Button: React.FC<ButtonProps> = ({ id, className, onClick, isClose,
 export const WindowButtons: React.FC = () => {
   const { showModal } = useModals();
 
-  const openGithub = () => shell.openExternal('https://github.com/flybywiresim/a32nx/issues/new/choose');
+  const openGithub = () =>
+    window.electronAPI?.remote.shellOpenExternal('https://github.com/flybywiresim/a32nx/issues/new/choose');
 
   const handleMinimize = () => {
-    ipcRenderer.send(channels.window.minimize);
+    window.electronAPI?.minimizeWindow();
   };
 
   const handleMaximize = () => {
-    ipcRenderer.send(channels.window.maximize);
+    window.electronAPI?.maximizeWindow();
   };
 
   const handleClose = () => {
@@ -52,8 +53,16 @@ export const WindowButtons: React.FC = () => {
         />,
       );
     } else {
-      Directories.removeAllTemp();
-      ipcRenderer.send(channels.window.close);
+      // Clean up temp directories asynchronously, then close
+      Directories.removeAllTemp()
+        .then(() => {
+          window.electronAPI?.closeWindow();
+        })
+        .catch((error) => {
+          console.error('Failed to clean up temp directories:', error);
+          // Still close the window even if cleanup fails
+          window.electronAPI?.closeWindow();
+        });
     }
   };
 

@@ -2,32 +2,23 @@ import React from 'react';
 import { Addon, AddonTrack, Publisher } from 'renderer/utils/InstallerConfiguration';
 import { PromptModal } from 'renderer/components/Modal';
 import { ButtonType } from 'renderer/components/Button';
-import {
-  clearDownloadInterrupted,
-  deleteDownload,
-  registerNewDownload,
-  setDownloadInterrupted,
-  setDownloadModuleIndex,
-  updateDownloadProgress,
-} from 'renderer/redux/features/downloads';
+import { deleteDownload, registerNewDownload, updateDownloadProgress } from 'renderer/redux/features/downloads';
 import { Directories } from 'renderer/utils/Directories';
-import fs from 'fs';
+import ipcFs from 'renderer/utils/IPCFileSystem';
 import { ApplicationStatus, InstallStatus, InstallStatusCategories } from 'renderer/components/AddonSection/Enums';
 import {
-  FragmenterContextEvents,
-  FragmenterError,
-  FragmenterInstallerEvents,
-  FragmenterOperation,
-  FragmenterUpdateChecker,
+  InstallError,
+  InstallOperation,
+  UpdateChecker,
   getCurrentInstall,
   InstallManifest,
-} from '@flybywiresim/fragmenter';
+} from 'renderer/types/install';
 import settings from 'renderer/rendererSettings';
 import { store } from 'renderer/redux/store';
 import { InstallState, setInstallStatus } from 'renderer/redux/features/installStatus';
 import { setSelectedTrack } from 'renderer/redux/features/selectedTrack';
 import { setInstalledTrack } from 'renderer/redux/features/installedTrack';
-import path from 'path';
+import { join } from 'renderer/stubs/path';
 import { DependencyDialogBody } from 'renderer/components/Modal/DependencyDialog';
 import { IncompatibleAddonDialogBody } from 'renderer/components/Modal/IncompatibleAddonDialog';
 import { Resolver } from 'renderer/utils/Resolver';
@@ -36,19 +27,12 @@ import { BackgroundServices } from 'renderer/utils/BackgroundServices';
 import { CannotInstallDialog } from 'renderer/components/Modal/CannotInstallDialog';
 import { ExternalApps } from 'renderer/utils/ExternalApps';
 import { ExternalAppsUI } from './ExternalAppsUI';
-import { ipcRenderer } from 'electron';
-import channels from 'common/channels';
-import * as Sentry from '@sentry/electron/renderer';
 import { ErrorDialog } from 'renderer/components/Modal/ErrorDialog';
 import { InstallSizeDialog } from 'renderer/components/Modal/InstallSizeDialog';
 import { IncompatibleAddOnsCheck } from 'renderer/utils/IncompatibleAddOnsCheck';
 import { FreeDiskSpace, FreeDiskSpaceStatus } from 'renderer/utils/FreeDiskSpace';
 import { setAddonAndTrackLatestReleaseInfo } from 'renderer/redux/features/latestVersionNames';
 import { AddonData, ReleaseInfo } from 'renderer/utils/AddonData';
-
-type FragmenterEventArguments<K extends keyof FragmenterInstallerEvents | keyof FragmenterContextEvents> = Parameters<
-  (FragmenterInstallerEvents & FragmenterContextEvents)[K]
->;
 
 export enum InstallResult {
   Success,
@@ -65,11 +49,18 @@ export class InstallManager {
     return arr;
   })();
 
+  private static get electronAPI() {
+    if (typeof window !== 'undefined' && (window as { electronAPI?: any }).electronAPI) {
+      return (window as { electronAPI: any }).electronAPI;
+    }
+    throw new Error('electronAPI is not available. Make sure preload script is properly loaded.');
+  }
+
   public static async installAddon(
     addon: Addon,
     publisher: Publisher,
     showModal: (modal: React.JSX.Element) => Promise<boolean>,
-    dependencyOf?: Addon,
+    _dependencyOf?: Addon,
   ): Promise<InstallResult> {
     this.setCurrentInstallState(addon, { status: InstallStatus.DownloadPending });
 
@@ -192,6 +183,7 @@ export class InstallManager {
       }
     }
 
+    // Check for incompatible addons
     if (addon.incompatibleAddons && addon.incompatibleAddons.length > 0) {
       const incompatibleAddons = await IncompatibleAddOnsCheck.checkIncompatibleAddOns(addon);
       if (incompatibleAddons.length > 0) {
@@ -206,16 +198,17 @@ export class InstallManager {
         );
         if (!continueInstall) {
           startResetStateTimer();
+
           return InstallResult.Cancelled;
         }
       }
     }
 
-    const destDir = Directories.inInstallLocation(addon.targetDirectory);
-    const tempDir = Directories.temp();
+    const destDir = await Directories.inInstallLocation(addon.targetDirectory);
+    const tempDir = await Directories.temp();
 
-    const fragmenterUpdateChecker = new FragmenterUpdateChecker();
-    const updateInfo = await fragmenterUpdateChecker.needsUpdate(track.url, destDir, { forceCacheBust: true });
+    const updateChecker = new UpdateChecker();
+    const updateInfo = await updateChecker.needsUpdate(track.url, destDir, { forceCacheBust: true });
 
     // Confirm download size and required disk space with user
     const requiredDiskSpace = updateInfo.requiredDiskSpace;
@@ -264,7 +257,8 @@ export class InstallManager {
       }),
     );
 
-    if (tempDir === Directories.installLocation()) {
+    const installLocation = await Directories.installLocation();
+    if (tempDir === installLocation) {
       console.error('[InstallManager](installAddon) Community directory equals temp directory');
 
       this.notifyDownload(addon, false);
@@ -280,189 +274,109 @@ export class InstallManager {
 
     try {
       // Create dest dir if it doesn't exist
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir);
+      const destDirExists = await ipcFs.existsSync(destDir);
+      if (!destDirExists) {
+        // Directory creation is handled by the main process during install
+        console.log(`[InstallManager](installAddon) Destination directory will be created: ${destDir}`);
       }
-
-      let lastPercent = 0;
 
       this.setCurrentInstallState(addon, { status: InstallStatus.DownloadPrep });
 
-      // Generate a random install iD to keep track of events related to our install
+      // Generate a random install ID to keep track of events related to our install
       const ourInstallID = Math.floor(Math.random() * 1_000_000);
 
-      const handleForwardedFragmenterEvent = (
-        _: unknown,
-        installID: number,
-        event: keyof FragmenterInstallerEvents | keyof FragmenterContextEvents,
-        ...args: unknown[]
-      ) => {
+      const handleDownloadEvent = (_: unknown, installID: number, event: string, ...args: unknown[]) => {
         if (installID !== ourInstallID) {
           return;
         }
 
         switch (event) {
           case 'downloadStarted': {
-            const [module] = args as FragmenterEventArguments<typeof event>;
-
-            console.log('[InstallManager](installAddon) Downloading started for module', module.name);
-
+            console.log('[InstallManager](installAddon) Download started');
             this.setCurrentInstallState(addon, { status: InstallStatus.Downloading });
 
             store.dispatch(
               updateDownloadProgress({
                 id: addon.key,
-                module: module.name,
+                module: 'main',
                 progress: {
                   interrupted: false,
                   totalPercent: 0,
-                  splitPartPercent: 0,
-                  splitPartIndex: 0,
-                  splitPartCount: 0,
                 },
               }),
             );
-
-            break;
-          }
-          case 'phaseChange': {
-            const [phase] = args as FragmenterEventArguments<typeof event>;
-
-            if (phase.op === FragmenterOperation.InstallFinish) {
-              this.setCurrentInstallState(addon, { status: InstallStatus.DownloadEnding });
-              return;
-            }
-
-            if ('moduleIndex' in phase) {
-              store.dispatch(
-                setDownloadModuleIndex({
-                  id: addon.key,
-                  moduleIndex: phase.moduleIndex,
-                }),
-              );
-            }
             break;
           }
           case 'downloadProgress': {
-            const [module, progress] = args as FragmenterEventArguments<typeof event>;
+            const [, progress] = args as [unknown, { percent: number }];
 
-            if (lastPercent !== progress.percent) {
-              lastPercent = progress.percent;
-              store.dispatch(
-                updateDownloadProgress({
-                  id: addon.key,
-                  module: module.name,
-                  progress: {
-                    interrupted: false,
-                    totalPercent: progress.percent,
-                    splitPartPercent: progress.partPercent,
-                    splitPartIndex: progress.partIndex,
-                    splitPartCount: progress.numParts,
-                  },
-                }),
-              );
-            }
+            store.dispatch(
+              updateDownloadProgress({
+                id: addon.key,
+                module: 'main',
+                progress: {
+                  interrupted: false,
+                  totalPercent: progress.percent,
+                },
+              }),
+            );
             break;
           }
-          case 'downloadInterrupted': {
-            store.dispatch(setDownloadInterrupted({ id: addon.key }));
-
-            break;
-          }
-          case 'unzipStarted': {
-            const [module] = args as FragmenterEventArguments<typeof event>;
-
-            console.log('[InstallManager](installAddon) Started unzipping module', module.name);
-            this.setCurrentInstallState(addon, { status: InstallStatus.Decompressing, percent: 0 });
-
-            if (dependencyOf) {
-              this.setCurrentInstallState(dependencyOf, {
-                status: InstallStatus.InstallingDependencyEnding,
-                dependencyAddonKey: addon.key,
-                dependencyPublisherKey: publisher.key,
-                percent: 0,
-              });
-            }
-            break;
-          }
-          case 'unzipProgress': {
-            const [, progress] = args as FragmenterEventArguments<typeof event>;
-
-            const percent = Math.round(((progress.entryIndex + 1) / progress.entryCount) * 100);
-
-            this.setCurrentInstallState(addon, {
-              status: InstallStatus.Decompressing,
-              percent,
-              entry: progress.entryName,
-            });
-
-            if (dependencyOf) {
-              this.setCurrentInstallState(dependencyOf, {
-                status: InstallStatus.InstallingDependencyEnding,
-                dependencyAddonKey: addon.key,
-                dependencyPublisherKey: publisher.key,
-                percent,
-              });
-            }
+          case 'downloadFinished': {
+            console.log('[InstallManager](installAddon) Download finished');
             break;
           }
           case 'copyStarted': {
-            const [module] = args as FragmenterEventArguments<typeof event>;
+            console.log('[InstallManager](installAddon) Copy started');
+            this.setCurrentInstallState(addon, { status: InstallStatus.Decompressing, percent: 0 });
+            break;
+          }
+          case 'copyProgress': {
+            const [, progress] = args as [unknown, { percent: number }];
 
-            console.log('[InstallManager](installAddon) Started moving over module', module.name);
+            this.setCurrentInstallState(addon, {
+              status: InstallStatus.Decompressing,
+              percent: progress.percent,
+            });
+            break;
+          }
+          case 'copyFinished': {
+            console.log('[InstallManager](installAddon) Copy finished');
+            break;
+          }
+          case 'phaseChange': {
+            const [phase] = args as [{ op: string }];
 
-            if (module.name === 'full') {
+            if (phase.op === InstallOperation.InstallFinish) {
               this.setCurrentInstallState(addon, { status: InstallStatus.DownloadEnding });
+              return;
             }
-
-            break;
-          }
-          case 'retryScheduled': {
-            const [module, retryCount, waitSeconds] = args as FragmenterEventArguments<typeof event>;
-
-            console.log('[InstallManager](installAddon) Scheduling a retry for module', module.name);
-            console.log('[InstallManager](installAddon) Retry count', retryCount);
-            console.log('[InstallManager](installAddon) Waiting for', waitSeconds, 'seconds');
-
-            store.dispatch(clearDownloadInterrupted({ id: addon.key }));
-
-            this.setCurrentInstallState(addon, { status: InstallStatus.DownloadRetry });
-            break;
-          }
-          case 'retryStarted': {
-            const [module, retryCount] = args as FragmenterEventArguments<typeof event>;
-
-            console.log('[InstallManager](installAddon) Starting a retry for module', module.name);
-            console.log('[InstallManager](installAddon) Retry count', retryCount);
-
-            this.setCurrentInstallState(addon, { status: InstallStatus.Downloading });
             break;
           }
           case 'cancelled': {
+            console.log('[InstallManager](installAddon) Download cancelled');
             this.setCurrentInstallState(addon, { status: InstallStatus.DownloadCanceled, timestamp: Date.now() });
             break;
           }
           case 'error': {
-            const [error] = args as FragmenterEventArguments<typeof event>;
-
-            console.error('[InstallManager](installAddon) Error from Fragmenter:', error);
-            Sentry.captureException(error);
+            const [error] = args as [Error];
+            console.error('[InstallManager](installAddon) Error during install:', error);
+            break;
           }
         }
       };
 
-      // Listen to forwarded fragmenter events
-      ipcRenderer.on(channels.installManager.fragmenterEvent, handleForwardedFragmenterEvent);
+      // Listen to download events
+      this.electronAPI.installManager.onInstallEvent(handleDownloadEvent);
 
       // Send cancel message when abort controller is aborted
       this.abortControllers[abortControllerID].signal.addEventListener('abort', () => {
-        ipcRenderer.send(channels.installManager.cancelInstall, ourInstallID);
+        this.electronAPI.installManager.cancelInstall(ourInstallID);
       });
 
-      console.log('[InstallManager](installAddon) Starting fragmenter download for URL', track.url);
+      console.log('[InstallManager](installAddon) Starting download for URL', track.url);
 
-      const installResult = await ipcRenderer.invoke(
-        channels.installManager.installFromUrl,
+      const installResult = await this.electronAPI.installManager.installFromUrl(
         ourInstallID,
         track.url,
         tempDir,
@@ -474,10 +388,10 @@ export class InstallManager {
         throw installResult;
       }
 
-      console.log('[InstallManager](installAddon) Fragmenter download finished for URL', track.url);
+      console.log('[InstallManager](installAddon) Download finished for URL', track.url);
 
-      // Stop listening to forwarded fragmenter events
-      ipcRenderer.removeListener(channels.installManager.fragmenterEvent, handleForwardedFragmenterEvent);
+      // Stop listening to download events
+      this.electronAPI.installManager.removeInstallEventListener(handleDownloadEvent);
 
       // Remove installs existing under alternative names
       console.log('[InstallManager](installAddon) Removing installs existing under alternative names');
@@ -495,16 +409,16 @@ export class InstallManager {
         const app = BackgroundServices.getExternalAppFromBackgroundService(addon, publisher);
 
         const isAutoStartEnabled = await BackgroundServices.isAutoStartEnabled(addon);
-        const doNotAskAgain = settings.get<string, boolean>(
+        const doNotAskAgain = (await settings.get(
           `mainSettings.disableBackgroundServiceAutoStartPrompt.${publisher.key}.${addon.key}`,
-        );
+        )) as boolean;
 
         if (!isAutoStartEnabled && !doNotAskAgain) {
           await showModal(<AutostartDialog app={app} addon={addon} publisher={publisher} isPrompted={true} />);
         }
       }
     } catch (e) {
-      const isFragmenterError = FragmenterError.isFragmenterError(e);
+      const isInstallError = InstallError.isInstallError(e);
 
       if (signal.aborted) {
         console.warn('[InstallManager](installAddon) Download was cancelled');
@@ -519,13 +433,9 @@ export class InstallManager {
 
         setErrorState();
 
-        Sentry.captureException(e);
-        await showModal(<ErrorDialog error={isFragmenterError ? e : FragmenterError.createFromError(e)} />);
+        await showModal(<ErrorDialog error={isInstallError ? e : InstallError.createFromError(e)} />);
 
         startResetStateTimer();
-
-        Sentry.captureException(e);
-        await showModal(<ErrorDialog error={e} />);
 
         return InstallResult.Failure;
       }
@@ -592,9 +502,7 @@ export class InstallManager {
 
     const installDir = Directories.inInstallLocation(addon.targetDirectory);
 
-    await ipcRenderer.invoke(channels.installManager.uninstall, installDir, [
-      Directories.inPackages(addon.targetDirectory),
-    ]);
+    await this.electronAPI.installManager.uninstall(installDir, [Directories.inPackages(addon.targetDirectory)]);
 
     this.setCurrentInstallState(addon, { status: InstallStatus.NotInstalled });
     this.setCurrentlyInstalledTrack(addon, null);
@@ -603,7 +511,7 @@ export class InstallManager {
   private static getAddonInstall(directory: string): InstallManifest | null {
     try {
       return getCurrentInstall(directory);
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -651,14 +559,15 @@ export class InstallManager {
     return addon.tracks[0];
   }
 
-  public static determineAddonInstalledTrack(addon: Addon): AddonTrack | null {
+  public static async determineAddonInstalledTrack(addon: Addon): Promise<AddonTrack | null> {
     const installedTrack = store.getState().installedTracks[addon.key] as AddonTrack;
 
     if (installedTrack) {
       return installedTrack;
     }
 
-    const install = this.getAddonInstall(Directories.inInstallLocation(addon.targetDirectory));
+    const installDir = await Directories.inInstallLocation(addon.targetDirectory);
+    const install = this.getAddonInstall(installDir);
 
     if (!install) {
       return null;
@@ -688,15 +597,14 @@ export class InstallManager {
       }
     }
   }
-
   private static async determineAddonInstallStatus(addon: Addon): Promise<InstallState> {
     console.log('[InstallManager](determineAddonInstallStatus) Checking install status');
-
-    const installDir = Directories.inInstallLocation(addon.targetDirectory);
-    const addonInstalledTrack = this.determineAddonInstalledTrack(addon);
+    const installDir = await Directories.inInstallLocation(addon.targetDirectory);
+    const addonInstalledTrack = await this.determineAddonInstalledTrack(addon);
     const addonSelectedTrack = this.getAddonSelectedTrack(addon);
 
-    if (!fs.existsSync(installDir)) {
+    const installDirExists = await ipcFs.existsSync(installDir);
+    if (!installDirExists) {
       console.log('[InstallManager](determineAddonInstallStatus) Is not installed');
 
       return { status: InstallStatus.NotInstalled };
@@ -704,14 +612,26 @@ export class InstallManager {
 
     console.log('[InstallManager](determineAddonInstallStatus) Checking for git install');
 
-    if (Directories.isGitInstall(installDir)) {
+    const isGitInstall = await Directories.isGitInstall(installDir);
+    if (isGitInstall) {
       console.log('[InstallManager](determineAddonInstallStatus) Is git install');
 
       return { status: InstallStatus.GitInstall };
     }
 
+    // For CDN releases, skip update checking as it's not implemented
+    if (addonSelectedTrack.releaseModel.type === 'CDN') {
+      console.log('[InstallManager](determineAddonInstallStatus) CDN track detected, assuming up to date');
+
+      if (addonSelectedTrack !== addonInstalledTrack && addonInstalledTrack) {
+        return { status: InstallStatus.TrackSwitch };
+      }
+
+      return { status: InstallStatus.UpToDate };
+    }
+
     try {
-      const updateInfo = await new FragmenterUpdateChecker().needsUpdate(addonSelectedTrack.url, installDir, {
+      const updateInfo = await new UpdateChecker().needsUpdate(addonSelectedTrack.url, installDir, {
         forceCacheBust: true,
       });
 
@@ -739,8 +659,6 @@ export class InstallManager {
   public static async checkForUpdates(addon: Addon): Promise<void> {
     console.log('[InstallManager](checkForUpdates) Checking for updates for ' + addon.key);
 
-    const installDir = Directories.inInstallLocation(addon.targetDirectory);
-
     const state = store.getState();
 
     const addonInstallState = state.installStatus[addon.key] ?? { status: InstallStatus.Unknown };
@@ -752,21 +670,19 @@ export class InstallManager {
       return;
     }
 
-    const fragmenterUpdateChecker = new FragmenterUpdateChecker();
-
     for (const track of addon.tracks) {
-      const updateInfo = await fragmenterUpdateChecker.needsUpdate(track.url, installDir, { forceCacheBust: true });
+      // Skip update checking for CDN releases as it's not implemented
+      if (track.releaseModel.type === 'CDN') {
+        console.log(`[InstallManager](checkForUpdates) Skipping CDN update check for ${addon.key} track ${track.key}`);
+        continue;
+      }
+
+      const installDir = await Directories.inInstallLocation(addon.targetDirectory);
+      const updateChecker = new UpdateChecker();
+      const updateInfo = await updateChecker.needsUpdate(track.url, installDir, { forceCacheBust: true });
 
       let info: ReleaseInfo;
-      if (track.releaseModel.type === 'fragmenter') {
-        info = {
-          name: updateInfo.distributionManifest.version,
-          changelogUrl: undefined,
-          releaseDate: Date.now(),
-        };
-      } else {
-        info = await AddonData.latestNonFragmenterVersionForTrack(addon, track);
-      }
+      info = await AddonData.latestVersionForTrack(addon, track);
 
       store.dispatch(setAddonAndTrackLatestReleaseInfo({ addonKey: addon.key, trackKey: track.key, info }));
 
@@ -797,12 +713,12 @@ export class InstallManager {
 
         if (successful) {
           new Notification(`${addon.name} download complete!`, {
-            icon: path.join(process.resourcesPath, 'extraResources', 'icon.ico'),
+            icon: join(process.resourcesPath, 'extraResources', 'icon.ico'),
             body: 'Take to the skies!',
           });
         } else {
           new Notification('Download failed!', {
-            icon: path.join(process.resourcesPath, 'extraResources', 'icon.ico'),
+            icon: join(process.resourcesPath, 'extraResources', 'icon.ico'),
             body: 'Oops, something went wrong',
           });
         }

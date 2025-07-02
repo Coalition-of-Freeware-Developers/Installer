@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useState, useEffect, useMemo } from 'react';
 import {
   Addon,
   DirectoryDefinition,
@@ -6,12 +6,10 @@ import {
   NamedDirectoryDefinition,
 } from 'renderer/utils/InstallerConfiguration';
 import { BoxArrowRight, Folder } from 'react-bootstrap-icons';
-import { ipcRenderer, shell } from 'electron';
 import { Directories } from 'renderer/utils/Directories';
 import { useAppSelector } from 'renderer/redux/store';
 import { InstallStatusCategories } from 'renderer/components/AddonSection/Enums';
-import fs from 'fs';
-import channels from 'common/channels';
+import ipcFs from 'renderer/utils/IPCFileSystem';
 
 export interface MyInstallProps {
   addon: Addon;
@@ -19,54 +17,85 @@ export interface MyInstallProps {
 
 export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
   const installStates = useAppSelector((state) => state.installStatus);
+  const [directoryExistence, setDirectoryExistence] = useState<Record<string, boolean>>({});
 
   const links: ExternalLink[] = [...(addon.myInstallPage?.links ?? [])];
 
-  const directories: NamedDirectoryDefinition[] = [
-    {
-      location: {
-        in: 'community',
-        path: addon.targetDirectory,
+  const directories: NamedDirectoryDefinition[] = useMemo(
+    () => [
+      {
+        location: {
+          in: 'community',
+          path: addon.targetDirectory,
+        },
+        title: 'Package Files',
       },
-      title: 'Package Files',
-    },
-    ...(addon.myInstallPage?.directories ?? []),
-  ];
+      ...(addon.myInstallPage?.directories ?? []),
+    ],
+    [addon.targetDirectory, addon.myInstallPage?.directories],
+  );
+
+  useEffect(() => {
+    const fulldirectoryLocal = async (def: DirectoryDefinition): Promise<string> => {
+      switch (def.location.in) {
+        case 'community':
+          return await Directories.inInstallLocation(def.location.path);
+        case 'package':
+          return await Directories.inInstallPackage(addon, def.location.path);
+        case 'packageCache':
+          return await Directories.inInstallLocation(def.location.path); // Fallback
+        case 'documents':
+          return await Directories.inInstallLocation(def.location.path); // Fallback
+        default:
+          return '';
+      }
+    };
+
+    const checkDirectoriesExistence = async () => {
+      const existence: Record<string, boolean> = {};
+
+      for (const dir of directories) {
+        try {
+          const fullPath = await fulldirectoryLocal(dir);
+          existence[dir.title] = await ipcFs.existsSync(fullPath);
+        } catch (error) {
+          console.error('Error checking directory existence:', error);
+          existence[dir.title] = false;
+        }
+      }
+
+      setDirectoryExistence(existence);
+    };
+
+    checkDirectoriesExistence();
+  }, [addon, directories]);
 
   const handleClickLink = (link: ExternalLink) => {
     const parsed = new URL(link.url);
 
     if (parsed.protocol.match(/https?/)) {
-      shell.openExternal(link.url).then();
+      window.electronAPI?.remote.shellOpenExternal(link.url);
     }
   };
 
-  const fulldirectory = (def: DirectoryDefinition) => {
+  const fulldirectory = async (def: DirectoryDefinition): Promise<string> => {
     switch (def.location.in) {
       case 'community':
-        return Directories.inInstallLocation(def.location.path);
+        return await Directories.inInstallLocation(def.location.path);
       case 'package':
-        return Directories.inInstallPackage(addon, def.location.path);
+        return await Directories.inInstallPackage(addon, def.location.path);
       case 'packageCache':
-        return Directories.inPackageCache(addon, def.location.path);
-      case 'documents': {
-        const documents = Directories.inDocumentsFolder(def.location.path);
-        if (fs.existsSync(documents)) {
-          return documents;
-        }
-        // fallback for simbridge installations prior to 0.6
-        // remove after transition period
-        return Directories.inInstallPackage(addon, 'resources');
-      }
+        return await Directories.inInstallLocation(def.location.path); // Fallback to install location
+      case 'documents':
+        return await Directories.inInstallLocation(def.location.path); // Fallback to install location
+      default:
+        return '';
     }
   };
 
-  const handleClickDirectory = (def: DirectoryDefinition) => {
-    ipcRenderer.send(channels.openPath, fulldirectory(def));
-  };
-
-  const existsDirectory = (def: DirectoryDefinition) => {
-    return fs.existsSync(fulldirectory(def));
+  const handleClickDirectory = async (def: DirectoryDefinition) => {
+    const path = await fulldirectory(def);
+    window.electronAPI?.openPath(path);
   };
 
   const directoriesDisabled = !InstallStatusCategories.installed.includes(installStates[addon.key]?.status);
@@ -101,7 +130,7 @@ export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
             {directories.map((it) => (
               <button
                 key={it.title}
-                className={`flex items-center gap-x-5 rounded-md border-2 border-navy-light bg-navy-light px-7 py-4 text-3xl transition-colors duration-100 hover:border-cyan hover:bg-transparent ${directoriesDisabled || !existsDirectory(it) ? 'pointer-events-none opacity-60' : ''}`}
+                className={`flex items-center gap-x-5 rounded-md border-2 border-navy-light bg-navy-light px-7 py-4 text-3xl transition-colors duration-100 hover:border-cyan hover:bg-transparent ${directoriesDisabled || !directoryExistence[it.title] ? 'pointer-events-none opacity-60' : ''}`}
                 onClick={() => handleClickDirectory(it)}
               >
                 <Folder size={24} />

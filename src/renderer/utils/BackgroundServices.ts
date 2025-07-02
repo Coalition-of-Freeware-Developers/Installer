@@ -3,10 +3,41 @@ import { Resolver } from 'renderer/utils/Resolver';
 import { store } from 'renderer/redux/store';
 import { ApplicationStatus } from 'renderer/components/AddonSection/Enums';
 import { ExternalApps } from 'renderer/utils/ExternalApps';
-import path from 'path';
+import { join, extname, parse, dirname, normalize } from 'renderer/stubs/path';
 import { Directories } from 'renderer/utils/Directories';
-import { shell } from '@electron/remote';
-import { promises } from 'fs';
+import ipcFs from 'renderer/utils/IPCFileSystem';
+
+// Simplified types
+type WindowWithElectron = typeof globalThis & {
+  electronAPI?: {
+    remote?: {
+      shellWriteShortcutLink?: (shortcutPath: string, operation: string, options: unknown) => Promise<boolean>;
+      shellOpenPath?: (path: string) => Promise<string>;
+    };
+  };
+};
+
+const getShellWriteShortcutLink = async (
+  shortcutPath: string,
+  operation: string,
+  options: unknown,
+): Promise<boolean> => {
+  const win = globalThis as WindowWithElectron;
+  if (win.electronAPI?.remote?.shellWriteShortcutLink) {
+    return await win.electronAPI.remote.shellWriteShortcutLink(shortcutPath, operation, options);
+  }
+  throw new Error('shell.writeShortcutLink is not available');
+};
+
+const getShellOpenPath = async (path: string): Promise<string> => {
+  const win = globalThis as WindowWithElectron;
+  if (win.electronAPI?.remote?.shellOpenPath) {
+    return await win.electronAPI.remote.shellOpenPath(path);
+  }
+  throw new Error('shell.openPath is not available');
+};
+
+const console = globalThis.console;
 
 export const STARTUP_FOLDER_PATH = 'Microsoft\\Windows\\Start Menu\\Programs\\Startup\\';
 
@@ -47,11 +78,9 @@ export class BackgroundServices {
       throw new Error('Addon has no background service');
     }
 
-    let folderEntries;
+    let folderEntries: string[] = [];
     try {
-      folderEntries = await promises.readdir(path.join(Directories.appData(), STARTUP_FOLDER_PATH), {
-        withFileTypes: true,
-      });
+      folderEntries = (await ipcFs.readdirSync(join(Directories.appData(), STARTUP_FOLDER_PATH))) as string[];
     } catch (e) {
       console.error(
         '[BackgroundServices](isAutoStartEnabled) Could not read contents of startup folder. See exception below',
@@ -59,13 +88,13 @@ export class BackgroundServices {
       console.error(e);
     }
 
-    if (!folderEntries) {
+    if (!folderEntries || folderEntries.length === 0) {
       return false;
     }
 
-    const shortcuts = folderEntries.filter((it) => it.isFile() && path.extname(it.name) === '.lnk');
+    const shortcuts = folderEntries.filter((filename: string) => extname(filename) === '.lnk');
     const matchingShortcut = shortcuts.find(
-      (it) => path.parse(it.name).name === backgroundService.executableFileBasename,
+      (filename: string) => parse(filename).name === backgroundService.executableFileBasename,
     );
 
     return matchingShortcut !== undefined;
@@ -82,29 +111,31 @@ export class BackgroundServices {
       throw new Error('Executable path much match /^[a-zA-Z\\d_-]+$/.');
     }
 
-    const exePath = path.join(
-      Directories.inInstallLocation(addon.targetDirectory),
-      backgroundService.executableFileBasename,
-    );
     const commandLineArgs = backgroundService.commandLineArgs ? ` ${backgroundService.commandLineArgs.join(' ')}` : '';
-
-    const shortcutDir = path.join(Directories.appData(), STARTUP_FOLDER_PATH);
-    const shortcutPath = path.join(shortcutDir, `${backgroundService.executableFileBasename}.lnk`);
+    const shortcutDir = join(Directories.appData(), STARTUP_FOLDER_PATH);
+    const shortcutPath = join(shortcutDir, `${backgroundService.executableFileBasename}.lnk`);
+    const installLocation = await Directories.inInstallLocation(addon.targetDirectory);
+    const exePath = join(installLocation, `${backgroundService.executableFileBasename}.exe`);
 
     if (enabled) {
-      const created = shell.writeShortcutLink(shortcutPath, 'create', {
-        target: exePath,
-        args: commandLineArgs,
-        cwd: path.dirname(exePath),
-      });
+      try {
+        const created = await getShellWriteShortcutLink(shortcutPath, 'create', {
+          target: exePath,
+          args: commandLineArgs,
+          cwd: dirname(exePath),
+        });
 
-      if (!created) {
+        if (!created) {
+          console.error('[BackgroundServices](setAutoStartEnabled) Could not create shortcut');
+        } else {
+          console.log('[BackgroundServices](setAutoStartEnabled) Shortcut created');
+        }
+      } catch (e) {
         console.error('[BackgroundServices](setAutoStartEnabled) Could not create shortcut');
-      } else {
-        console.log('[BackgroundServices](setAutoStartEnabled) Shortcut created');
+        console.error(e);
       }
     } else {
-      promises.rm(shortcutPath).catch((e) => {
+      ipcFs.rmSync(shortcutPath).catch((e: unknown) => {
         console.error('[BackgroundServices](setAutoStartEnabled) Could not remove shortcut. See exception below.');
         console.error(e);
       });
@@ -122,16 +153,12 @@ export class BackgroundServices {
       throw new Error('Executable path much match /^[a-zA-Z\\d_-]+$/.');
     }
 
-    const exePath = path.normalize(
-      path.join(
-        Directories.inInstallLocation(addon.targetDirectory),
-        `${backgroundService.executableFileBasename}.exe`,
-      ),
-    );
+    const installLocation = await Directories.inInstallLocation(addon.targetDirectory);
+    const exePath = normalize(join(installLocation, `${backgroundService.executableFileBasename}.exe`));
 
-    await shell.openPath(exePath);
+    await getShellOpenPath(exePath);
 
-    // if (exePath.startsWith('..')) {
+    // if (exestartsWith('..')) {
     //     throw new Error('Validated and normalized path still traversed directory.');
     // }
     //

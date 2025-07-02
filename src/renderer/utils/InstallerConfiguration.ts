@@ -23,10 +23,6 @@ export type AddonVersion = {
   type: 'major' | 'minor' | 'patch';
 };
 
-export type FragmenterReleaseModel = {
-  type: 'fragmenter';
-};
-
 export type GithubReleaseReleaseModel = {
   /** @deprecated */
   type: 'githubRelease';
@@ -39,15 +35,10 @@ export type GithubBranchReleaseModel = {
 };
 
 export type CDNReleaseModel = {
-  /** @deprecated */
   type: 'CDN';
 };
 
-export type ReleaseModel =
-  | FragmenterReleaseModel
-  | GithubReleaseReleaseModel
-  | GithubBranchReleaseModel
-  | CDNReleaseModel;
+export type ReleaseModel = GithubReleaseReleaseModel | GithubBranchReleaseModel | CDNReleaseModel;
 
 type BaseAddonTrack = {
   name: string;
@@ -234,7 +225,7 @@ export interface ConfigurationAspect {
   /**
    * What to apply the list of desired choices to
    */
-  applyChoiceKeyTo: 'optionalFragmenterModule';
+  applyChoiceKeyTo: string;
 
   /**
    * The kind of choice to permit
@@ -328,7 +319,7 @@ export type Definition = AddonCategoryDefinition | ExternalApplicationDefinition
 
 interface BasePublisherButton {
   text: string;
-  style?: 'normal' | 'fbw-local-api-config';
+  style?: 'normal';
   icon?: string;
   inline?: boolean;
   inop?: true;
@@ -341,12 +332,7 @@ type UrlPublisherButton = BasePublisherButton & {
   url: string;
 };
 
-type InternalAction = BasePublisherButton & {
-  action: 'internal';
-  call: 'fbw-local-api-config';
-};
-
-export type PublisherButton = UrlPublisherButton | InternalAction;
+export type PublisherButton = UrlPublisherButton;
 
 export type Publisher = {
   name: string;

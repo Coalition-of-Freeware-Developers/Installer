@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ipcRenderer } from 'electron';
-import * as path from 'path';
+import { join } from 'renderer/stubs/path';
 import channels from 'common/channels';
 
-type IpcCallback = Parameters<(typeof ipcRenderer)['on']>[1];
+type IpcCallback = (data?: unknown) => void;
 
 enum UpdateState {
   Standby,
@@ -30,7 +29,21 @@ export const InstallerUpdate = (): JSX.Element => {
   }
 
   useEffect(() => {
-    const updateErrorHandler: IpcCallback = (_, args) => {
+    // Check if electronAPI is available
+    const electronAPI = (globalThis.window as { electronAPI?: unknown })?.electronAPI as
+      | {
+          onUpdateError?: (callback: IpcCallback) => void;
+          onUpdateAvailable?: (callback: IpcCallback) => void;
+          onUpdateDownloaded?: (callback: IpcCallback) => void;
+          removeListener?: (channel: string, callback: IpcCallback) => void;
+        }
+      | undefined;
+    if (!electronAPI) {
+      console.warn('electronAPI not available in InstallerUpdate component');
+      return;
+    }
+
+    const updateErrorHandler: IpcCallback = (args) => {
       console.error('Update error', args);
     };
 
@@ -40,7 +53,7 @@ export const InstallerUpdate = (): JSX.Element => {
       setUpdateState(UpdateState.DownloadingUpdate);
     };
 
-    const updateDownloadedHandler: IpcCallback = (_, args) => {
+    const updateDownloadedHandler: IpcCallback = (args) => {
       console.log('Update downloaded', args);
 
       setUpdateState(UpdateState.RestartToUpdate);
@@ -49,21 +62,24 @@ export const InstallerUpdate = (): JSX.Element => {
         .then(() => {
           console.log('Showing Update notification');
           new Notification('Restart to update!', {
-            icon: path.join(process.resourcesPath, 'extraResources', 'icon.ico'),
+            icon: join(process.resourcesPath, 'extraResources', 'icon.ico'),
             body: 'An update to the installer has been downloaded',
           });
         })
         .catch((e) => console.log(e));
     };
 
-    ipcRenderer.on(channels.update.error, updateErrorHandler);
-    ipcRenderer.on(channels.update.available, updateAvailableHandler);
-    ipcRenderer.on(channels.update.downloaded, updateDownloadedHandler);
+    electronAPI.onUpdateError(updateErrorHandler);
+    electronAPI.onUpdateAvailable(updateAvailableHandler);
+    electronAPI.onUpdateDownloaded(updateDownloadedHandler);
 
     return () => {
-      ipcRenderer.off(channels.update.error, updateErrorHandler);
-      ipcRenderer.off(channels.update.available, updateAvailableHandler);
-      ipcRenderer.off(channels.update.downloaded, updateDownloadedHandler);
+      // Cleanup listeners if electronAPI provides removeListener methods
+      if (electronAPI.removeListener) {
+        electronAPI.removeListener(channels.update.error, updateErrorHandler);
+        electronAPI.removeListener(channels.update.available, updateAvailableHandler);
+        electronAPI.removeListener(channels.update.downloaded, updateDownloadedHandler);
+      }
     };
   }, []);
 
@@ -74,7 +90,10 @@ export const InstallerUpdate = (): JSX.Element => {
       }`}
       onClick={() => {
         if (updateState === UpdateState.RestartToUpdate) {
-          ipcRenderer.send('restartAndUpdate');
+          const electronAPI = (globalThis.window as { electronAPI?: { restartAndUpdate?: () => void } })?.electronAPI;
+          if (electronAPI?.restartAndUpdate) {
+            electronAPI.restartAndUpdate();
+          }
         }
       }}
     >

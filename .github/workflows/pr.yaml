@@ -49,5 +49,5 @@ jobs:
       - name: Upload PR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FlyByWire_Installer_Setup
-          path: ./dist/FlyByWire_Installer_Setup.exe
+          name: coalition-installer
+          path: ./dist/coalition-installer.exe

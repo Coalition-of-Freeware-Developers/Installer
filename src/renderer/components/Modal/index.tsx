@@ -4,15 +4,14 @@ import { Dot, X } from 'react-bootstrap-icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './index.css';
-import changelog from './../../../../.github/CHANGELOG.yaml';
 import * as packageInfo from '../../../../package.json';
 import { Button, ButtonType } from 'renderer/components/Button';
 import { CompactYesNoOptionToggle } from './AutostartDialog';
 
 interface ModalContextInterface {
-  showModal: (modal: JSX.Element) => void;
-  showModalAsync: (modal: JSX.Element) => Promise<boolean>;
-  modal?: JSX.Element;
+  showModal: (modal: React.JSX.Element) => void;
+  showModalAsync: (modal: React.JSX.Element) => Promise<boolean>;
+  modal?: React.JSX.Element;
   popModal: () => void;
 }
 
@@ -21,17 +20,17 @@ const ModalContext = createContext<ModalContextInterface>(undefined);
 export const useModals = (): ModalContextInterface => useContext(ModalContext);
 
 export const ModalProvider: FC = ({ children }) => {
-  const [modal, setModal] = useState<JSX.Element | undefined>(undefined);
+  const [modal, setModal] = useState<React.JSX.Element | undefined>(undefined);
 
   const popModal = () => {
     setModal(undefined);
   };
 
-  const showModal = (modal: JSX.Element) => {
+  const showModal = (modal: React.JSX.Element) => {
     setModal(modal);
   };
 
-  const showModalAsync = (modal: JSX.Element): Promise<boolean> => {
+  const showModalAsync = (modal: React.JSX.Element): Promise<boolean> => {
     return new Promise((resolve) => {
       setModal(
         React.cloneElement(modal, {
@@ -90,22 +89,28 @@ export const PromptModal: FC<PromptModalProps> = ({
 
   const { popModal } = useModals();
 
-  const handleConfirm = () => {
+  const handleConfirm = React.useCallback(() => {
     if (dontShowAgainSettingName) {
       setDontShowAgain(checkMark);
     }
     onConfirm?.();
     popModal();
-  };
+  }, [dontShowAgainSettingName, setDontShowAgain, checkMark, onConfirm, popModal]);
 
   const handleCancel = () => {
     onCancel?.();
     popModal();
   };
 
-  if (dontShowAgain && closeIfDontShowAgain) {
-    handleConfirm();
-  }
+  // Use useEffect to handle automatic confirmation to avoid setState during render
+  React.useEffect(() => {
+    if (dontShowAgain && closeIfDontShowAgain) {
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => {
+        handleConfirm();
+      }, 0);
+    }
+  }, [dontShowAgain, closeIfDontShowAgain, handleConfirm]);
 
   return (
     <div className="modal">
@@ -159,17 +164,19 @@ export const AlertModal: FC<AlertModalProps> = ({
 
   const { popModal } = useModals();
 
-  const handleAcknowledge = () => {
+  const handleAcknowledge = React.useCallback(() => {
     if (dontShowAgainSettingName) {
       setDontShowAgain(checkMark);
     }
     onAcknowledge?.();
     popModal();
-  };
+  }, [dontShowAgainSettingName, setDontShowAgain, checkMark, onAcknowledge, popModal]);
 
-  if (dontShowAgain && closeIfDontShowAgain) {
-    handleAcknowledge();
-  }
+  React.useEffect(() => {
+    if (dontShowAgain && closeIfDontShowAgain) {
+      handleAcknowledge();
+    }
+  }, [dontShowAgain, closeIfDontShowAgain, handleAcknowledge]);
 
   return (
     <div className="modal">
@@ -222,7 +229,7 @@ export const ChangelogModal: React.FC = () => {
           <X className="-m-14.06px text-red-600 hover:text-red-500" size={50} strokeWidth={1} />
         </div>
       </div>
-      <div className="mt-4 h-96 overflow-y-scroll">
+      {/* <div className="mt-4 h-96 overflow-y-scroll">
         {(changelog as ChangelogType).releases.map((release) => (
           <div key={release.name} className="mb-6">
             <div className="mb-2 text-4xl font-bold">{release.name}</div>
@@ -261,7 +268,7 @@ export const ChangelogModal: React.FC = () => {
             ))}
           </div>
         ))}
-      </div>
+      </div> */}
     </div>
   );
 };
@@ -282,15 +289,20 @@ const DoNotAskAgain: FC<DoNotAskAgainProps> = ({ checked, toggleChecked }) => (
 export const ModalContainer: FC = () => {
   const { modal, showModal } = useModals();
 
-  const onVersionChanged = () => {
-    if (packageInfo.version !== settings.get<string>('metaInfo.lastVersion')) {
-      settings.set('metaInfo.lastVersion', packageInfo.version);
-      showModal(<ChangelogModal />);
-    }
-  };
+  React.useEffect(() => {
+    const onVersionChanged = async () => {
+      const lastVersion = await settings.get<string>('metaInfo.lastVersion');
+      if (packageInfo.version !== lastVersion) {
+        await settings.set('metaInfo.lastVersion', packageInfo.version);
+        // Use setTimeout to avoid setState during render
+        setTimeout(() => {
+          showModal(<ChangelogModal />);
+        }, 0);
+      }
+    };
 
-  // FIXME Why is this being called every render?
-  onVersionChanged();
+    onVersionChanged();
+  }, [showModal]);
 
   return (
     <div

@@ -118,7 +118,7 @@
 .markdown-body-releasenotes h1 {
     margin: .67em 0;
     padding-bottom: .3em;
-    @apply text-4xl;
+    font-size: 2.25rem;
     border-bottom: 1px solid var(--color-border-muted);
 }
 
@@ -296,36 +296,38 @@
 .markdown-body-releasenotes h6 {
     margin-top: 24px;
     margin-bottom: 16px;
-    @apply font-bold text-white leading-relaxed;
+    font-weight: 700;
+    color: white;
+    line-height: 1.625;
 }
 
 .markdown-body-releasenotes h2 {
-    @apply text-3xl;
+    font-size: 1.875rem;
     padding-bottom: .3em;
     border-bottom: 1px solid var(--color-border-muted);
 }
 
 .markdown-body-releasenotes h3 {
-    @apply text-2xl;
+    font-size: 1.5rem;
 }
 
 .markdown-body-releasenotes h4 {
-    @apply text-xl;
+    font-size: 1.25rem;
 }
 
 .markdown-body-releasenotes h5 {
-    @apply text-xl;
+    font-size: 1.25rem;
 }
 
 .markdown-body-releasenotes h6 {
-    @apply text-xl;
+    font-size: 1.25rem;
     color: var(--color-fg-muted);
 }
 
 .markdown-body-releasenotes p {
     margin-top: 0;
     margin-bottom: 10px;
-    @apply font-light;
+    font-weight: 300;
 }
 
 .markdown-body-releasenotes blockquote {
@@ -343,11 +345,11 @@
 }
 
 .markdown-body-releasenotes ul {
-    @apply list-disc;
+    list-style-type: disc;
 }
 
 .markdown-body-releasenotes ol {
-    @apply list-decimal;
+    list-style-type: decimal;
 }
 
 .markdown-body-releasenotes dd {

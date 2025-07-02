@@ -6,7 +6,7 @@ import './index.css';
 import { Addon } from 'renderer/utils/InstallerConfiguration';
 import { useInView } from 'react-intersection-observer';
 import { ReleaseData } from 'renderer/redux/types';
-import { GitVersions } from '@flybywiresim/api-client';
+import { GitVersions } from 'renderer/utils/AddonData';
 import { addReleases } from 'renderer/redux/features/releaseNotes';
 import { useSetting } from 'renderer/rendererSettings';
 import dateFormat from 'dateformat';

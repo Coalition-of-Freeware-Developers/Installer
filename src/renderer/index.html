@@ -4,10 +4,58 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
+    <!-- Content Security Policy for development mode -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: ws: wss: http://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;">
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@100;200;400;600&display=swap" rel="stylesheet">
 
     <title>Coalition of Freeware Developers - Installer</title>
+    
+    <!-- Polyfill for Node.js globals before main app loads -->
+    <script>
+      // Ensure global and module are available before any modules load
+      if (typeof global === 'undefined') {
+        window.global = window.globalThis || window;
+      }
+      if (typeof module === 'undefined') {
+        window.module = {};
+      }
+      
+      // Polyfill process before any modules can access it
+      if (typeof process === 'undefined') {
+        window.process = {
+          platform: 'win32',
+          env: {},
+          argv: [],
+          version: '',
+          versions: {},
+          pid: 0,
+          title: '',
+          arch: 'x64',
+          cwd: function() { return ''; },
+          chdir: function() {},
+          nextTick: function(callback) { setTimeout(callback, 0); },
+          browser: true,
+          node: false
+        };
+      }
+      
+      // Ensure these are available on global as well
+      if (window.global && !window.global.process) {
+        window.global.process = window.process;
+      }
+      if (window.global && !window.global.Buffer && typeof Buffer !== 'undefined') {
+        window.global.Buffer = Buffer;
+      }
+      
+      // Buffer and process should be available via vite polyfills, but ensure fallback
+      if (typeof Buffer === 'undefined' && window.global && window.global.Buffer) {
+        window.Buffer = window.global.Buffer;
+      }
+      if (typeof process === 'undefined' && window.global && window.global.process) {
+        window.process = window.global.process;
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

@@ -42,11 +42,11 @@ const PathSettingItem: React.FC<PathSettingItemProps> = ({ value, setValue, name
   );
 };
 
-const MsfsCommunityPathSettingItem = ({ value, setValue }: SettingItemProps<string>): JSX.Element => (
+const XPlaneAircraftPathSettingItem = ({ value, setValue }: SettingItemProps<string>): JSX.Element => (
   <PathSettingItem
     value={value}
     setValue={setValue}
-    name="MSFS Community Directory"
+    name="X-Plane 12 Aircraft Directory"
     callback={setupMsfsCommunityPath}
   />
 );
@@ -108,7 +108,7 @@ const UseCdnSettingItem = ({ value, setValue }: SettingItemProps<boolean>) => {
 };
 
 export const DownloadSettings = (): JSX.Element => {
-  const [communityPath, setCommunityPath] = useSetting<string>('mainSettings.msfsCommunityPath');
+  const [aircraftPath, setAircraftPath] = useSetting<string>('mainSettings.xp12AircraftPath');
   const [installPath, setInstallPath] = useSetting<string>('mainSettings.installPath');
   const [tempLocation, setTempLocation] = useSetting<string>('mainSettings.tempLocation');
   const [separateTempLocation, setSeparateTempLocation] = useSetting<boolean>('mainSettings.separateTempLocation');
@@ -122,7 +122,7 @@ export const DownloadSettings = (): JSX.Element => {
       <div className="flex flex-col">
         <h2 className="text-white">Download Settings</h2>
         <div className="flex flex-col divide-y divide-gray-600">
-          <MsfsCommunityPathSettingItem value={communityPath} setValue={setCommunityPath} />
+          <XPlaneAircraftPathSettingItem value={aircraftPath} setValue={setAircraftPath} />
           <InstallPathSettingItem value={installPath} setValue={setInstallPath} />
           <SeparateTempLocationSettingItem value={separateTempLocation} setValue={setSeparateTempLocation} />
           {separateTempLocation && <TempLocationSettingItem value={tempLocation} setValue={setTempLocation} />}

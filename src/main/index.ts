@@ -1,14 +1,36 @@
-import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, shell, ipcMain, dialog, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import { NsisUpdater } from 'electron-updater';
 import installExtension, { REDUX_DEVTOOLS, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import * as packageInfo from '../../package.json';
 import settings, { persistWindowSettings } from './mainSettings';
 import channels from 'common/channels';
-import * as remote from '@electron/remote/main';
 import { InstallManager } from 'main/InstallManager';
-import { SentryClient } from 'main/SentryClient';
 import Store from 'electron-store';
 import path from 'path';
+import fs from 'fs';
+
+// Use process.cwd() instead of __dirname to avoid ESM conflicts
+const appDir = app.isPackaged ? path.dirname(process.execPath) : process.cwd();
+const preloadPath = app.isPackaged
+  ? path.join(appDir, 'resources', 'app.asar.unpacked', 'out', 'preload', 'preload.mjs')
+  : path.join(process.cwd(), 'out', 'preload', 'preload.mjs');
+
+// Define renderer paths
+const getRendererPaths = () => {
+  if (app.isPackaged) {
+    return [
+      path.join(appDir, 'resources', 'app.asar.unpacked', 'out', 'renderer', 'index.html'),
+      path.join(process.resourcesPath, 'app', 'out', 'renderer', 'index.html'),
+      path.join(appDir, 'out', 'renderer', 'index.html'),
+    ];
+  } else {
+    return [path.join(process.cwd(), 'out', 'renderer', 'index.html')];
+  }
+};
+
+// Polyfills for Node.js globals in ES modules
+const console = globalThis.console;
+const global = globalThis;
 
 function initializeApp() {
   Store.initRenderer();
@@ -25,12 +47,21 @@ function initializeApp() {
       backgroundColor: '#1b2434',
       show: false,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: preloadPath,
+        webSecurity: !import.meta.env.DEV, // Only disable in development
+        sandbox: false, // Keep disabled for filesystem access and IPC functionality
+        allowRunningInsecureContent: import.meta.env.DEV, // Only allow in development
+        experimentalFeatures: false, // Disable experimental features for stability
+        javascript: true, // Explicitly enable JavaScript
+        plugins: false, // Disable plugins for security
+        defaultEncoding: 'UTF-8',
+        nodeIntegrationInWorker: false,
+        nodeIntegrationInSubFrames: false,
+        enableWebSQL: false,
       },
     });
-
-    remote.enable(mainWindow.webContents);
 
     const UpsertKeyValue = (
       header: Record<string, string> | Record<string, string[]>,
@@ -66,6 +97,14 @@ function initializeApp() {
       });
     });
 
+    // Ensure React DevTools can detect React applications
+    if (import.meta.env.DEV) {
+      mainWindow.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+        // Allow React DevTools to work properly
+        callback({});
+      });
+    }
+
     mainWindow.once('ready-to-show', () => {
       mainWindow.show();
     });
@@ -80,7 +119,11 @@ function initializeApp() {
     });
 
     ipcMain.on(channels.window.maximize, () => {
-      mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
     });
 
     ipcMain.on(channels.window.close, () => {
@@ -114,6 +157,136 @@ function initializeApp() {
       mainWindow.setProgressBar(value);
     });
 
+    // Remote functionality handlers
+    ipcMain.handle(channels.remote.getAppPath, (_, name: string) => {
+      return app.getPath(
+        name as
+          | 'home'
+          | 'appData'
+          | 'userData'
+          | 'sessionData'
+          | 'temp'
+          | 'exe'
+          | 'module'
+          | 'desktop'
+          | 'documents'
+          | 'downloads'
+          | 'music'
+          | 'pictures'
+          | 'videos'
+          | 'recent'
+          | 'logs'
+          | 'crashDumps',
+      );
+    });
+
+    ipcMain.handle(channels.remote.showOpenDialog, async (_, options: OpenDialogOptions) => {
+      return await dialog.showOpenDialog(mainWindow, options);
+    });
+
+    ipcMain.handle(channels.remote.showMessageBox, async (_, options: MessageBoxOptions) => {
+      return await dialog.showMessageBox(mainWindow, options);
+    });
+
+    ipcMain.handle(channels.remote.shellOpenPath, async (_, path: string) => {
+      return await shell.openPath(path);
+    });
+
+    ipcMain.handle(channels.remote.shellOpenExternal, async (_, url: string) => {
+      return await shell.openExternal(url);
+    });
+
+    ipcMain.handle(channels.remote.clipboardWriteText, async (_, text: string, type?: string) => {
+      const { clipboard } = await import('electron');
+      clipboard.writeText(text, type as 'selection' | 'clipboard' | undefined);
+    });
+
+    ipcMain.handle(
+      channels.remote.shellWriteShortcutLink,
+      async (_, shortcutPath: string, operation: string, options: unknown) => {
+        return shell.writeShortcutLink(
+          shortcutPath,
+          operation as 'create' | 'update' | 'replace',
+          options as Parameters<typeof shell.writeShortcutLink>[1],
+        );
+      },
+    );
+
+    // Filesystem functionality handlers
+    ipcMain.handle(channels.fs.existsSync, (_, path: string) => {
+      try {
+        return fs.existsSync(path);
+      } catch (error) {
+        console.error('Error checking if path exists:', error);
+        return false;
+      }
+    });
+
+    ipcMain.handle(channels.fs.readdirSync, (_, path: string, options?: Parameters<typeof fs.readdirSync>[1]) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return fs.readdirSync(path, options as any);
+      } catch (error) {
+        console.error('Error reading directory:', error);
+        return [];
+      }
+    });
+
+    ipcMain.handle(channels.fs.rmSync, (_, path: string, options?: { recursive?: boolean; force?: boolean }) => {
+      try {
+        fs.rmSync(path, options);
+        return { success: true };
+      } catch (error) {
+        console.error('Error removing path:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle(channels.fs.removeAllTemp, async () => {
+      try {
+        console.log('[CLEANUP] Removing all temp directories from main process');
+
+        // We need to get the temp location from settings
+        const separateTempLocation = settings.get('mainSettings.separateTempLocation');
+        const tempLocationPath = separateTempLocation
+          ? (settings.get('mainSettings.tempLocation') as string)
+          : (settings.get('mainSettings.installPath') as string);
+
+        if (!fs.existsSync(tempLocationPath)) {
+          console.warn('[CLEANUP] Location of temporary folders does not exist. Aborting');
+          return { success: true };
+        }
+
+        const TEMP_DIRECTORY_PREFIXES_FOR_CLEANUP = [
+          'flybywire_current_install',
+          'coalition_current_install',
+          'coalition-current-install',
+        ];
+
+        const dirents = fs
+          .readdirSync(tempLocationPath, { withFileTypes: true })
+          .filter((dirEnt) => dirEnt.isDirectory())
+          .filter((dirEnt) => TEMP_DIRECTORY_PREFIXES_FOR_CLEANUP.some((prefix) => dirEnt.name.startsWith(prefix)));
+
+        for (const dir of dirents) {
+          const fullPath = path.join(tempLocationPath, dir.name);
+          console.log('[CLEANUP] Removing', fullPath);
+          try {
+            fs.rmSync(fullPath, { recursive: true });
+            console.log('[CLEANUP] Removed', fullPath);
+          } catch (e) {
+            console.error('[CLEANUP] Could not remove', fullPath, e);
+          }
+        }
+
+        console.log('[CLEANUP] Finished removing all temp directories');
+        return { success: true };
+      } catch (error) {
+        console.error('Error removing temp directories:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
     const lastX = settings.get<string, number>('cache.main.lastWindowX');
     const lastY = settings.get<string, number>('cache.main.lastWindowY');
     const shouldMaximize = settings.get<string, boolean>('cache.main.maximized');
@@ -138,13 +311,76 @@ function initializeApp() {
     }
 
     if (import.meta.env.DEV) {
-      mainWindow.webContents.openDevTools();
+      // Open DevTools after the page loads to ensure extensions are properly loaded
+      mainWindow.webContents.once('dom-ready', () => {
+        console.log('DOM ready, opening DevTools with extensions...');
+        mainWindow.webContents.openDevTools();
+      });
     }
 
+    const loadRendererWithRetry = async (retries = 3, delay = 1000) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          console.log(`Attempting to load renderer URL: ${process.env.ELECTRON_RENDERER_URL}`);
+          await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+          console.log('Successfully loaded renderer URL');
+          return;
+        } catch (error) {
+          console.error(`Attempt ${i + 1} failed to load renderer URL:`, error);
+          if (i < retries - 1) {
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise((resolve) => global.setTimeout(resolve, delay));
+            delay *= 2; // Exponential backoff
+          }
+        }
+      }
+      console.error('All attempts to load renderer URL failed');
+
+      // If all retries failed, try to load a simple fallback
+      try {
+        const fallbackHTML = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Installer Loading Error</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1b2434; color: white; }
+                .error { color: #ff6b6b; margin-bottom: 20px; }
+              </style>
+            </head>
+            <body>
+              <h1>Development Server Connection Failed</h1>
+              <div class="error">Could not connect to the development server.</div>
+              <p>Please make sure the development server is running on ${process.env.ELECTRON_RENDERER_URL}</p>
+              <p>Try running: <code>npm run dev</code></p>
+            </body>
+          </html>
+        `;
+        await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fallbackHTML)}`);
+      } catch (fallbackError) {
+        console.error('Even fallback HTML failed to load:', fallbackError);
+      }
+    };
+
     if (!app.isPackaged) {
-      mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL).then();
+      loadRendererWithRetry().catch(console.error);
     } else {
-      mainWindow.loadFile(path.join(__dirname, '../renderer/index.html')).then();
+      // In production, load the built HTML file
+      const rendererPaths = getRendererPaths();
+      const rendererPath = rendererPaths[0];
+      console.log('Loading renderer from:', rendererPath);
+      mainWindow.loadFile(rendererPath).catch((error) => {
+        console.error('Failed to load renderer file:', error);
+        // Fallback: try loading the index.html from different locations
+        const fallbackPaths = rendererPaths.slice(1);
+
+        for (const fallbackPath of fallbackPaths) {
+          console.log('Trying fallback path:', fallbackPath);
+          mainWindow.loadFile(fallbackPath).catch(() => {
+            console.log('Fallback failed for:', fallbackPath);
+          });
+        }
+      });
     }
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -153,11 +389,8 @@ function initializeApp() {
     });
 
     if (import.meta.env.DEV) {
-      // Open the DevTools.
+      // Open the settings in editor for development
       settings.openInEditor();
-      mainWindow.webContents.once('dom-ready', () => {
-        mainWindow.webContents.openDevTools();
-      });
     }
 
     // Auto updater
@@ -182,8 +415,8 @@ function initializeApp() {
 
       const autoUpdater = new NsisUpdater(updateOptions);
 
-      autoUpdater.addListener('update-downloaded', (event, releaseNotes, releaseName) => {
-        mainWindow.webContents.send(channels.update.downloaded, { event, releaseNotes, releaseName });
+      autoUpdater.addListener('update-downloaded', (event) => {
+        mainWindow.webContents.send(channels.update.downloaded, { event });
       });
 
       autoUpdater.addListener('update-available', () => {
@@ -208,13 +441,67 @@ function initializeApp() {
         app.exit();
       });
     }
+
+    // Electron store IPC handlers
+    ipcMain.handle('electron-store-get', (_, key: string, defaultValue?: unknown) => {
+      return settings.get(key, defaultValue);
+    });
+
+    ipcMain.handle('electron-store-set', (_, key: string, value: unknown) => {
+      settings.set(key, value);
+    });
+
+    ipcMain.handle('electron-store-delete', (_, key: string) => {
+      // Use type assertion to work around strict typing
+      (settings as { delete: (key: string) => void }).delete(key);
+    });
+
+    ipcMain.handle('electron-store-clear', () => {
+      settings.clear();
+    });
+
+    // Handle store change notifications
+    settings.onDidAnyChange((newValue, oldValue) => {
+      // Notify all change listeners for any key that changed
+      const oldKeys = oldValue ? Object.keys(oldValue as Record<string, unknown>) : [];
+      const newKeys = newValue ? Object.keys(newValue as Record<string, unknown>) : [];
+      const allKeys = new Set([...oldKeys, ...newKeys]);
+
+      for (const key of allKeys) {
+        const oldVal = oldValue ? (oldValue as Record<string, unknown>)[key] : undefined;
+        const newVal = newValue ? (newValue as Record<string, unknown>)[key] : undefined;
+
+        if (oldVal !== newVal) {
+          mainWindow.webContents.send(`electron-store-changed-${key}`, newVal, oldVal);
+        }
+      }
+    });
+
+    //Register keybinds
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // Check if the input event is for window reloading
+      if (
+        input.type === 'keyUp' &&
+        (input.key.toLowerCase() === 'r' || input.key === 'F5') &&
+        (input.control || input.meta)
+      ) {
+        if (mainWindow.isFocused()) {
+          mainWindow.reload();
+        }
+      }
+
+      // Check if the input even is for dev tools
+      if (input.type === 'keyUp' && input.key === 'F12' && (input.control || input.meta)) {
+        if (mainWindow.isFocused()) {
+          mainWindow.webContents.toggleDevTools();
+        }
+      }
+    });
   }
 
   if (!app.requestSingleInstanceLock()) {
     app.quit();
   }
-
-  remote.initialize();
 
   app.setAppUserModelId('FlyByWire Installer');
 
@@ -225,35 +512,27 @@ function initializeApp() {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
-  app.on('ready', () => {
-    createWindow();
-
+  app.on('ready', async () => {
+    // Install DevTools extensions before creating the window in development
     if (import.meta.env.DEV) {
-      installExtension(REACT_DEVELOPER_TOOLS)
-        .then((name) => console.log(`Added Extension:  ${name}`))
-        .catch((err) => console.log('An error occurred: ', err));
+      try {
+        console.log('Installing DevTools extensions...');
 
-      installExtension(REDUX_DEVTOOLS)
-        .then((name) => console.log(`Added Extension:  ${name}`))
-        .catch((err) => console.log('An error occurred: ', err));
+        // Install React Developer Tools
+        const reactDevToolsName = await installExtension(REACT_DEVELOPER_TOOLS);
+        console.log(`Added Extension: ${reactDevToolsName}`);
+
+        // Install Redux DevTools
+        const reduxDevToolsName = await installExtension(REDUX_DEVTOOLS);
+        console.log(`Added Extension: ${reduxDevToolsName}`);
+
+        console.log('DevTools extensions installed successfully');
+      } catch (err) {
+        console.error('Failed to install DevTools extensions:', err);
+      }
     }
 
-    //Register keybinds
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      // Check if the input event is for window reloading
-      if (
-        input.type === 'keyUp' &&
-        (input.key.toLowerCase() === 'r' || input.key === 'F5') &&
-        (input.control || input.meta)
-      ) {
-        mainWindow.isFocused() && mainWindow.reload();
-      }
-
-      // Check if the input even is for dev tools
-      if (input.type === 'keyUp' && input.key === 'F12' && (input.control || input.meta)) {
-        mainWindow.isFocused() && mainWindow.webContents.toggleDevTools();
-      }
-    });
+    createWindow();
   });
 
   // Quit when all windows are closed, except on macOS. There, it's common
@@ -283,8 +562,6 @@ function initializeApp() {
     }
   });
 }
-
-SentryClient.initialize();
 
 InstallManager.setupIpcListeners();
 

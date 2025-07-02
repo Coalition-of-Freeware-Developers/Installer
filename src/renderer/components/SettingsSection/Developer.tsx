@@ -3,8 +3,6 @@ import { useSetting } from 'renderer/rendererSettings';
 import { Toggle } from 'renderer/components/Toggle';
 import * as packageInfo from '../../../../package.json';
 import { Button, ButtonType } from 'renderer/components/Button';
-import { ipcRenderer } from 'electron';
-import channels from 'common/channels';
 
 const SettingsItem: FC<{ name: string }> = ({ name, children }) => (
   <div className="flex flex-row items-center justify-between py-3.5">
@@ -24,7 +22,7 @@ export const DeveloperSettings: React.FC = () => {
       fetch(configDownloadUrl).then((response) => {
         setConfigDownloadUrlValid(response.status === 200);
       });
-    } catch (e) {
+    } catch {
       setConfigDownloadUrlValid(false);
     }
   }, [configDownloadUrl]);
@@ -51,7 +49,7 @@ export const DeveloperSettings: React.FC = () => {
               <Button
                 type={ButtonType.Neutral}
                 className="ml-2 h-fit min-h-10 text-lg"
-                onClick={() => ipcRenderer.send(channels.window.reload)}
+                onClick={() => window.electronAPI?.reloadWindow()}
               >
                 Reload Installer
               </Button>

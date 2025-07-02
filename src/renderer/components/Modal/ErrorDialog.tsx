@@ -9,9 +9,7 @@ import {
   ShieldExclamation,
   ShieldLock,
 } from 'react-bootstrap-icons';
-import { clipboard, shell } from 'electron';
-import { FragmenterError, FragmenterErrorCode } from '@flybywiresim/fragmenter';
-import { SentrySessionCard } from 'renderer/components/SentrySessionCard';
+import { InstallError, InstallErrorCode } from 'renderer/types/install';
 
 const DISCORD_SUPPORT_URL = 'https://discord.com/channels/738864299392630914/1065394439608078336';
 
@@ -22,20 +20,20 @@ export interface ErrorDialogProps {
 
 export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
   const handleOpenDiscordSupport = async () => {
-    await shell.openExternal(DISCORD_SUPPORT_URL);
+    await window.electronAPI?.remote.shellOpenExternal(DISCORD_SUPPORT_URL);
   };
 
-  let fragmenterError;
+  let installError;
   try {
-    fragmenterError = FragmenterError.parseFromMessage(error.message);
-  } catch (e) {
+    installError = InstallError.parseFromMessage(error.message);
+  } catch {
     // noop
   }
 
   let errorVisualisation = null;
-  if (fragmenterError) {
-    switch (fragmenterError.code) {
-      case FragmenterErrorCode.PermissionsError:
+  if (installError) {
+    switch (installError.code) {
+      case InstallErrorCode.PermissionsError:
         errorVisualisation = (
           <ErrorVisualisationBox icon={<ShieldLock className="text-utility-red" size={36} />}>
             <span className="font-manrope text-4xl font-bold">Windows permissions error</span>
@@ -43,7 +41,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
           </ErrorVisualisationBox>
         );
         break;
-      case FragmenterErrorCode.NoSpaceOnDevice:
+      case InstallErrorCode.NoSpaceOnDevice:
         errorVisualisation = (
           <ErrorVisualisationBox icon={<Hdd className="text-utility-red" size={36} />}>
             <span className="font-manrope text-4xl font-bold">No space left on device</span>
@@ -51,7 +49,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
           </ErrorVisualisationBox>
         );
         break;
-      case FragmenterErrorCode.NetworkError:
+      case InstallErrorCode.NetworkError:
         errorVisualisation = (
           <ErrorVisualisationBox icon={<Ethernet className="text-utility-red" size={36} />}>
             <span className="font-manrope text-4xl font-bold">Network error</span>
@@ -59,17 +57,17 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
           </ErrorVisualisationBox>
         );
         break;
-      case FragmenterErrorCode.ResourcesBusy: // fallthrough
-      case FragmenterErrorCode.MaxModuleRetries: // fallthrough
-      case FragmenterErrorCode.FileNotFound: // fallthrough
-      case FragmenterErrorCode.DirectoryNotEmpty: // fallthrough
-      case FragmenterErrorCode.NotADirectory: // fallthrough
-      case FragmenterErrorCode.ModuleJsonInvalid: // fallthrough
-      case FragmenterErrorCode.ModuleCrcMismatch: // fallthrough
-      case FragmenterErrorCode.UserAborted: // fallthrough
-      case FragmenterErrorCode.CorruptedZipFile:
-      case FragmenterErrorCode.Null: // fallthrough
-      case FragmenterErrorCode.Unknown: // Fallthrough
+      case InstallErrorCode.ResourcesBusy: // fallthrough
+      case InstallErrorCode.MaxModuleRetries: // fallthrough
+      case InstallErrorCode.FileNotFound: // fallthrough
+      case InstallErrorCode.DirectoryNotEmpty: // fallthrough
+      case InstallErrorCode.NotADirectory: // fallthrough
+      case InstallErrorCode.ModuleJsonInvalid: // fallthrough
+      case InstallErrorCode.ModuleCrcMismatch: // fallthrough
+      case InstallErrorCode.UserAborted: // fallthrough
+      case InstallErrorCode.CorruptedZipFile:
+      case InstallErrorCode.Null: // fallthrough
+      case InstallErrorCode.Unknown: // Fallthrough
       default:
         errorVisualisation = (
           <ErrorVisualisationBox icon={<ShieldExclamation className="text-utility-red" size={36} />}>
@@ -84,7 +82,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
   // Error stack to clipboard handling
   const [showCopied, setShowCopied] = useState(false);
   const handleCopy = () => {
-    clipboard.writeText(error.stack, 'clipboard');
+    window.electronAPI?.remote.clipboardWriteText(error.stack || '', 'clipboard');
     setShowCopied(true);
     setTimeout(() => {
       setShowCopied(false);
@@ -108,8 +106,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
 
           <div className="flex flex-col">
             <p>
-              Obtain support on <a onClick={handleOpenDiscordSupport}>Discord</a> and provide the error message and on
-              request the sentry code:
+              Obtain support on <a onClick={handleOpenDiscordSupport}>Discord</a> and provide the error message:
             </p>
             <div className="relative flex w-full items-center justify-center rounded-md border-2 border-gray-800 p-3.5 text-center text-3xl">
               {showCopied ? (
@@ -140,7 +137,6 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({ error, onAcknowledge }) => {
                 </>
               )}
             </div>
-            <SentrySessionCard />
           </div>
         </div>
       }

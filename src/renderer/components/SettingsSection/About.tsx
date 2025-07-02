@@ -1,9 +1,7 @@
 import React, { FC, useEffect, useState } from 'react';
 import FbwTail from 'renderer/assets/FBW-Tail.svg';
 import * as packageInfo from '../../../../package.json';
-import { shell } from 'electron';
 import { ChangelogModal, useModals } from '../Modal';
-import { SentrySessionCard } from 'renderer/components/SentrySessionCard';
 import { ThirdPartyLicensesModal } from 'renderer/components/Modal/ThirdPartyLicensesModal';
 
 export const AboutSettings: FC = () => {
@@ -11,7 +9,7 @@ export const AboutSettings: FC = () => {
 
   useEffect(() => {
     if (logoRotation / 360 > 5) {
-      shell.openExternal('https://www.youtube.com/watch?v=dQw4w9WgXcQ?autoplay=1');
+      window.electronAPI?.remote.shellOpenExternal('https://www.youtube.com/watch?v=dQw4w9WgXcQ?autoplay=1');
 
       setLogoRotation(0);
     }
@@ -52,17 +50,13 @@ export const AboutSettings: FC = () => {
       </div>
 
       <div className="flex flex-col justify-center">
-        <span className="text-2xl">Copyright (c) 2020-2024 FlyByWire Simulations and its contributors</span>
+        <span className="text-2xl">Copyright (c) 2020-2024 Coalition of Freeware Developers and its contributors</span>
         <span className="text-2xl">Licensed under the GNU General Public License Version 3</span>
 
         <span className="mt-4 text-2xl text-gray-200">
           All publisher associated logos are the intellectual property of their respective owners. Media content
-          included is licensed under the terms set by the publisher.
+          included is licensed under the terms set by the publisher. This installer is designed for X-Plane 12 addons.
         </span>
-
-        <div className="mt-5" style={{ width: '520px' }}>
-          <SentrySessionCard />
-        </div>
 
         <a className="mt-4 text-xl text-gray-500 hover:text-gray-600" onClick={handleOpenThirdPartyLicenses}>
           Third party licenses

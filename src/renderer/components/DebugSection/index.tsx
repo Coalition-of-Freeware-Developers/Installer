@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import path from 'path';
-import { ipcRenderer } from 'electron';
-import channels from 'common/channels';
+import { join } from 'renderer/stubs/path';
 
 export const DebugSection = (): JSX.Element => {
-  const [ipcMessage, setIpcMessage] = useState<string>(channels.window.minimize);
+  const [ipcMessage, setIpcMessage] = useState<string>('window:minimize');
 
   const sendNotification = () => {
     Notification.requestPermission()
       .then(() => {
         console.log('Showing test notification');
-        console.log(path.join(process.resourcesPath, 'extraResources', 'icon.ico'));
+        console.log(join(process.resourcesPath, 'extraResources', 'icon.ico'));
         new Notification('This is a test!', {
-          icon: path.join(process.resourcesPath, 'extraResources', 'icon.ico'),
+          icon: join(process.resourcesPath, 'extraResources', 'icon.ico'),
           body: 'We did something that you should know about.',
         });
       })
@@ -20,7 +18,7 @@ export const DebugSection = (): JSX.Element => {
   };
 
   const sendIpcMessage = () => {
-    ipcRenderer.send(ipcMessage);
+    window.electronAPI?.send(ipcMessage);
   };
 
   return (

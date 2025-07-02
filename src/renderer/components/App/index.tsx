@@ -1,4 +1,3 @@
-import { hot } from 'react-hot-loader';
 import React, { useEffect, useState } from 'react';
 import SimpleBar from 'simplebar-react';
 import { Logo } from 'renderer/components/Logo';
@@ -13,12 +12,12 @@ import { Redirect, Route, Switch, useHistory, useLocation } from 'react-router-d
 import { useAppSelector } from 'renderer/redux/store';
 import settings from 'renderer/rendererSettings';
 import './index.css';
-import { ipcRenderer } from 'electron';
-import channels from 'common/channels';
 import { ModalContainer } from '../Modal';
 import { PublisherSection } from 'renderer/components/PublisherSection';
 import * as packageInfo from '../../../../package.json';
 import { InstallManager } from 'renderer/utils/InstallManager';
+
+const window = globalThis.window as { electronAPI?: { checkForInstallerUpdate?: () => void } };
 
 const App = () => {
   const history = useHistory();
@@ -34,47 +33,85 @@ const App = () => {
   );
 
   useEffect(() => {
-    for (const addon of addons) {
-      void InstallManager.refreshAddonInstallState(addon).then(() => void InstallManager.checkForUpdates(addon));
-    }
+    let isMounted = true;
+    let cleanupUnlisten: (() => void) | undefined;
 
-    if (settings.get('cache.main.lastShownSection')) {
-      history.push(settings.get('cache.main.lastShownSection'));
-    }
+    const initializeApp = async (): Promise<void> => {
+      for (const addon of addons) {
+        if (!isMounted) return;
+        await InstallManager.refreshAddonInstallState(addon);
 
-    // Let's listen for a route change and set the last shown section to the incoming route pathname
-    history.listen((location) => {
-      settings.set('cache.main.lastShownSection', location.pathname);
-    });
+        // Skip update checking for CDN addons as it's not implemented
+        const hasCDNTracks = addon.tracks.some((track) => track.releaseModel.type === 'CDN');
+        if (!hasCDNTracks) {
+          if (!isMounted) return;
+          await InstallManager.checkForUpdates(addon);
+        }
+      }
+
+      if (!isMounted) return;
+      const lastShownSection = await settings.get('cache.main.lastShownSection');
+      if (lastShownSection && isMounted) {
+        history.push(lastShownSection as string);
+      }
+
+      // Let's listen for a route change and set the last shown section to the incoming route pathname
+      cleanupUnlisten = history.listen((location) => {
+        settings.set('cache.main.lastShownSection', location.pathname);
+      });
+    };
+
+    void initializeApp();
+
+    return () => {
+      isMounted = false;
+      cleanupUnlisten?.();
+    };
   }, [addons, history]);
 
   useEffect(() => {
-    const updateCheck = setInterval(
+    const updateCheck = globalThis.setInterval(
       () => {
-        ipcRenderer.send(channels.checkForInstallerUpdate);
+        window.electronAPI?.checkForInstallerUpdate?.();
 
         for (const addon of addons) {
-          void InstallManager.checkForUpdates(addon);
+          // Skip update checking for CDN addons as it's not implemented
+          const hasCDNTracks = addon.tracks.some((track) => track.releaseModel.type === 'CDN');
+          if (!hasCDNTracks) {
+            void InstallManager.checkForUpdates(addon);
+          }
         }
       },
       5 * 60 * 1000,
     );
 
-    return () => clearInterval(updateCheck);
+    return () => globalThis.clearInterval(updateCheck);
   }, [addons]);
 
-  const configUrl = settings.get('mainSettings.configDownloadUrl') as string;
+  const [configUrlValue, setConfigUrlValue] = useState<string>('');
+
+  useEffect(() => {
+    settings.get('mainSettings.configDownloadUrl').then((url) => {
+      setConfigUrlValue((url as string) || '');
+    });
+  }, []);
 
   const isDevelopmentConfigURL = () => {
     const productionURL = packageInfo.configUrls.production;
     // Protection against accidental screenshots of confidential config urls
     // Limited to flybywire config url to prevent 3rd party urls to be hidden
     let showDevURL = 'n/a';
-    if (!configUrl.includes(packageInfo.configUrls.confidentialBaseUrl)) {
-      showDevURL = configUrl;
+    if (
+      configUrlValue &&
+      typeof configUrlValue === 'string' &&
+      packageInfo.configUrls.confidentialBaseUrl &&
+      !configUrlValue.includes(packageInfo.configUrls.confidentialBaseUrl)
+    ) {
+      showDevURL = configUrlValue;
     }
     return (
-      configUrl !== productionURL && (
+      configUrlValue &&
+      configUrlValue !== productionURL && (
         <div className="my-auto ml-32 flex gap-x-4 text-2xl text-gray-400">
           <pre className="text-utility-amber">Developer Configuration Used: </pre>
           <pre className="text-quasi-white">{showDevURL}</pre>
@@ -154,4 +191,4 @@ const App = () => {
   );
 };
 
-export default hot(module)(App);
+export default App;

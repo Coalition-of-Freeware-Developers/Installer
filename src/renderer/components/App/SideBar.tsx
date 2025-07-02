@@ -49,7 +49,7 @@ export const SidebarAddon: React.FC<SidebarAddonProps> = ({ addon, isSelected, h
   const addonDownloadState = useSelector<InstallerStore>((state) => {
     try {
       return state.installStatus[addon.key] as InstallStatus;
-    } catch (e) {
+    } catch {
       return InstallStatus.Unknown;
     }
   });

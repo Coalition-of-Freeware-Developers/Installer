@@ -6,22 +6,19 @@ on:
 jobs:
   build:
     # Prevent running this on forks
-    if: github.repository_owner == 'flybywiresim'
+    if: github.repository_owner == 'Coalition-of-Freeware-Developers'
     runs-on: ubuntu-22.04
     env:
       MASTER_PRE_RELEASE_ID: 36189658
       MASTER_PRE_RELEASE_TAG: vmaster
-      ASSET_PATH: dist/FlyByWire_Installer_Setup.exe
-      ASSET_NAME: FlyByWire_Installer_Setup.exe
+      ASSET_PATH: dist/coalition-installer.exe
+      ASSET_NAME: coalition-installer.exe
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Create .sentrydsn file
-        run: |
-          echo ${{ secrets.SENTRY_DSN_INSTALLER }} >> ./extraResources/.sentrydsn
       - name: Set BUILT_DATE_TIME
         run: echo "BUILT_DATE_TIME=$(date -u -Iseconds)" >> $GITHUB_ENV
       - name: Install NPM dependencies

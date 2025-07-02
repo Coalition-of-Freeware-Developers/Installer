@@ -5,9 +5,9 @@ import { useSelector } from 'react-redux';
 import { InstallerStore, useAppDispatch, useAppSelector } from '../../redux/store';
 import { Addon, AddonCategoryDefinition, AddonTrack } from 'renderer/utils/InstallerConfiguration';
 import { NavLink, Redirect, Route, useHistory, useParams } from 'react-router-dom';
-import { Gear, InfoCircle, JournalText, Sliders } from 'react-bootstrap-icons';
+import { InfoCircle, JournalText, Sliders } from 'react-bootstrap-icons';
 import settings, { useSetting } from 'renderer/rendererSettings';
-import { ipcRenderer } from 'electron';
+
 import { AddonBar, AddonBarItem } from '../App/AddonBar';
 import { NoAvailableAddonsSection } from '../NoAvailableAddonsSection';
 import { ReleaseNotes } from './ReleaseNotes';
@@ -18,7 +18,7 @@ import { Button, ButtonType } from 'renderer/components/Button';
 import { MainActionButton } from 'renderer/components/AddonSection/MainActionButton';
 import { ApplicationStatus, InstallStatus, InstallStatusCategories } from 'renderer/components/AddonSection/Enums';
 import { setApplicationStatus } from 'renderer/redux/features/applicationStatus';
-import { LocalApiConfigEditUI } from '../LocalApiConfigEditUI';
+
 import { Configure } from 'renderer/components/AddonSection/Configure';
 import { InstallManager } from 'renderer/utils/InstallManager';
 import { StateSection } from 'renderer/components/AddonSection/StateSection';
@@ -81,7 +81,7 @@ export const AddonSection = (): JSX.Element => {
   const [selectedAddon, setSelectedAddon] = useState<Addon>(() => {
     try {
       return publisherData.addons[0];
-    } catch (e) {
+    } catch {
       throw new Error('Invalid publisher key: ' + publisherName);
     }
   });
@@ -115,12 +115,33 @@ export const AddonSection = (): JSX.Element => {
       return;
     }
 
-    const lastSeenAddonKey = settings.get('cache.main.lastShownAddonKey');
-    const addonToSelect =
-      publisherData.addons.find((addon) => addon.key === lastSeenAddonKey) ||
-      publisherData.addons.find((addon) => addon.key === firstAvailableAddon.key);
+    let isMounted = true;
 
-    setSelectedAddon(addonToSelect);
+    const loadSelectedAddon = async () => {
+      try {
+        const lastSeenAddonKey = await settings.get('cache.main.lastShownAddonKey');
+        const addonToSelect =
+          publisherData.addons.find((addon) => addon.key === lastSeenAddonKey) ||
+          publisherData.addons.find((addon) => addon.key === firstAvailableAddon.key);
+
+        if (isMounted) {
+          setSelectedAddon(addonToSelect);
+        }
+      } catch (error) {
+        console.error('Failed to load last seen addon key:', error);
+        // Fallback to first available addon
+        const addonToSelect = publisherData.addons.find((addon) => addon.key === firstAvailableAddon.key);
+        if (isMounted) {
+          setSelectedAddon(addonToSelect);
+        }
+      }
+    };
+
+    loadSelectedAddon();
+
+    return () => {
+      isMounted = false;
+    };
   }, [history, publisherData.addons, publisherName]);
 
   const installedTrack = (installedTracks[selectedAddon.key] as AddonTrack) ?? null;
@@ -184,9 +205,9 @@ export const AddonSection = (): JSX.Element => {
 
   useEffect(() => {
     if (download && isDownloading) {
-      ipcRenderer.send('set-window-progress-bar', download.progress.totalPercent / 100);
+      window.electronAPI?.setWindowProgressBar(download.progress.totalPercent / 100);
     } else {
-      ipcRenderer.send('set-window-progress-bar', -1);
+      window.electronAPI?.setWindowProgressBar(-1);
     }
   }, [download, isDownloading]);
 
@@ -227,9 +248,15 @@ export const AddonSection = (): JSX.Element => {
   };
 
   const handleInstall = async () => {
-    if (settings.has('mainSettings.installPath')) {
-      await InstallManager.installAddon(selectedAddon, publisherData, showModalAsync);
-    } else {
+    try {
+      const installPath = await settings.get('mainSettings.installPath');
+      if (installPath) {
+        await InstallManager.installAddon(selectedAddon, publisherData, showModalAsync);
+      } else {
+        await setupInstallPath();
+      }
+    } catch (error) {
+      console.error('Failed to check install path:', error);
       await setupInstallPath();
     }
   };
@@ -340,10 +367,6 @@ export const AddonSection = (): JSX.Element => {
       <div className={`flex size-full flex-col bg-navy`}>
         <div className="relative flex h-full flex-row">
           <div className="w-full">
-            <Route path={`/addon-section/FlyByWire Simulations/configuration/fbw-local-api-config`}>
-              <LocalApiConfigEditUI />
-            </Route>
-
             <Route exact path={`/addon-section/${publisherName}`}>
               {publisherData.addons.every((addon) => !addon.enabled) ? (
                 <Redirect to={`/addon-section/${publisherName}/no-available-addons`} />
@@ -402,10 +425,6 @@ export const AddonSection = (): JSX.Element => {
                     )}
                   </Route>
 
-                  <Route path={`/addon-section/${publisherName}/main/simbridge-config`}>
-                    <LocalApiConfigEditUI />
-                  </Route>
-
                   <Route path={`/addon-section/${publisherName}/main/about`}>
                     <About addon={selectedAddon} />
                   </Route>
@@ -420,15 +439,6 @@ export const AddonSection = (): JSX.Element => {
                         <SideBarLink to={`/addon-section/${publisherName}/main/release-notes`}>
                           <JournalText size={22} />
                           Release Notes
-                        </SideBarLink>
-                      )}
-                      {selectedAddon.key === 'simbridge' && ( // TODO find a better way to do this...
-                        <SideBarLink
-                          to={`/addon-section/${publisherName}/main/simbridge-config`}
-                          disabled={InstallStatusCategories.installing.includes(status)}
-                        >
-                          <Gear size={22} />
-                          Settings
                         </SideBarLink>
                       )}
                       <SideBarLink to={`/addon-section/${publisherName}/main/about`}>

@@ -11,16 +11,27 @@ export default {
     available: 'update/available',
     downloaded: 'update/downloaded',
   },
+  fs: {
+    existsSync: 'fs/existsSync',
+    readdirSync: 'fs/readdirSync',
+    rmSync: 'fs/rmSync',
+    removeAllTemp: 'fs/removeAllTemp',
+  },
   checkForInstallerUpdate: 'checkForInstallerUpdate',
   installManager: {
-    fragmenterEvent: 'installManager/fragmenterEvent',
+    installEvent: 'installManager/installEvent',
     installFromUrl: 'installManager/installFromUrl',
     cancelInstall: 'installManager/cancelInstall',
     uninstall: 'installManager/uninstall',
   },
-  sentry: {
-    requestSessionID: 'sentry/requestSessionID',
-    provideSessionID: 'sentry/provideSessionID',
+  remote: {
+    getAppPath: 'remote/getAppPath',
+    showOpenDialog: 'remote/showOpenDialog',
+    showMessageBox: 'remote/showMessageBox',
+    shellOpenPath: 'remote/shellOpenPath',
+    shellOpenExternal: 'remote/shellOpenExternal',
+    shellWriteShortcutLink: 'remote/shellWriteShortcutLink',
+    clipboardWriteText: 'remote/clipboardWriteText',
   },
   openPath: 'openPath',
 };

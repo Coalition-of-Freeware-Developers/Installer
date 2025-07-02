@@ -1,5 +1,5 @@
-const checker = require('license-checker');
-const fs = require('fs');
+import checker from 'license-checker';
+import fs from 'fs';
 
 const OUT_FILE = './.github/LICENSES.yaml';
 
