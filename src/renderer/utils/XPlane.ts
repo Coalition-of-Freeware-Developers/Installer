@@ -1,18 +1,14 @@
-import net from 'net';
+import net from 'renderer/stubs/net';
 
 export class XPlane {
   static async isRunning(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const socket = net.connect(49000); // X-Plane 12 default port
-
-      socket.on('connect', () => {
-        resolve(true);
-        socket.destroy();
-      });
-      socket.on('error', () => {
-        resolve(false);
-        socket.destroy();
-      });
-    });
+    try {
+      // Use IPC-based TCP connection check for X-Plane 12 default port
+      const result = await net.connect(49000);
+      return result;
+    } catch (error) {
+      console.error('Error checking if X-Plane is running:', error);
+      return false;
+    }
   }
 }

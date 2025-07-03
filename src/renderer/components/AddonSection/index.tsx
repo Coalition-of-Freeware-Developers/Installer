@@ -52,7 +52,7 @@ interface SideBarLinkProps {
 
 const SideBarLink: FC<SideBarLinkProps> = ({ to, children, disabled = false }) => (
   <NavLink
-    className={`flex w-full flex-row items-center gap-x-5 text-2xl ${disabled ? 'text-gray-500' : 'text-white'} font-manrope font-bold no-underline hover:text-cyan`}
+    className={`flex w-full padding-add flex-row items-center gap-x-5 text-2xl ${disabled ? 'text-gray-500' : 'text-white'} font-manrope font-bold no-underline hover:text-cyan`}
     activeClassName="text-cyan"
     to={to}
     style={{ pointerEvents: disabled ? 'none' : 'unset' }}
@@ -163,31 +163,51 @@ export const AddonSection = (): JSX.Element => {
 
   useEffect(() => {
     const checkApplicationInterval = setInterval(async () => {
-      // Map app references to definition objects
-      const disallowedRunningExternalApps = ExternalApps.forAddon(selectedAddon, publisherData);
+      try {
+        // Map app references to definition objects
+        const disallowedRunningExternalApps = ExternalApps.forAddon(selectedAddon, publisherData);
 
-      for (const app of disallowedRunningExternalApps ?? []) {
-        // Determine what state the app is in
-        let state = false;
-        switch (app.detectionType) {
-          case 'ws':
-            state = await ExternalApps.determineStateWithWS(app);
-            break;
-          case 'http':
-            state = await ExternalApps.determineStateWithHttp(app);
-            break;
-          case 'tcp':
-            state = await ExternalApps.determineStateWithTcp(app);
-            break;
+        for (const app of disallowedRunningExternalApps ?? []) {
+          try {
+            // Determine what state the app is in
+            let state = false;
+            switch (app.detectionType) {
+              case 'ws':
+                state = await ExternalApps.determineStateWithWS(app).catch((error) => {
+                  console.error('Error checking WS app state:', error);
+                  return false;
+                });
+                break;
+              case 'http':
+                state = await ExternalApps.determineStateWithHttp(app).catch((error) => {
+                  console.error('Error checking HTTP app state:', error);
+                  return false;
+                });
+                break;
+              case 'tcp':
+                state = await ExternalApps.determineStateWithTcp(app).catch((error) => {
+                  console.error('Error checking TCP app state:', error);
+                  return false;
+                });
+                break;
+              default:
+                console.error('Unknown detection type:', app.detectionType);
+                continue;
+            }
+
+            // Dispatch the app's state
+            dispatch(
+              setApplicationStatus({
+                applicationName: app.key,
+                applicationStatus: state ? ApplicationStatus.Open : ApplicationStatus.Closed,
+              }),
+            );
+          } catch (error) {
+            console.error('Error processing external app:', app.key, error);
+          }
         }
-
-        // Dispatch the app's state
-        dispatch(
-          setApplicationStatus({
-            applicationName: app.key,
-            applicationStatus: state ? ApplicationStatus.Open : ApplicationStatus.Closed,
-          }),
-        );
+      } catch (error) {
+        console.error('Error in external apps check interval:', error);
       }
     }, 500);
 

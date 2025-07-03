@@ -1,5 +1,5 @@
 import { Addon, ExternalApplicationDefinition, Publisher } from 'renderer/utils/InstallerConfiguration';
-import net from 'net';
+import net from 'renderer/stubs/net';
 import { Resolver } from 'renderer/utils/Resolver';
 
 export class ExternalApps {
@@ -18,49 +18,86 @@ export class ExternalApps {
   }
 
   static async determineStateWithWS(app: ExternalApplicationDefinition): Promise<boolean> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       try {
+        if (!app.url) {
+          console.error('WebSocket external app has no URL:', app);
+          resolve(false);
+          return;
+        }
+
         const wbs = new WebSocket(app.url);
 
-        wbs.addEventListener('open', () => resolve(true));
-        wbs.addEventListener('error', () => resolve(false));
-      } catch (e) {
-        reject(new Error('Error while establishing WS external app state, see exception above'));
-        console.error(e);
+        wbs.addEventListener('open', () => {
+          wbs.close();
+          resolve(true);
+        });
+
+        wbs.addEventListener('error', (error) => {
+          console.error('WebSocket connection error:', error);
+          resolve(false);
+        });
+
+        // Add a timeout to prevent hanging
+        setTimeout(() => {
+          if (wbs.readyState === WebSocket.CONNECTING) {
+            wbs.close();
+            resolve(false);
+          }
+        }, 5000);
+      } catch (error) {
+        console.error('Error while establishing WS external app state:', error);
+        resolve(false);
       }
     });
   }
 
   static async determineStateWithHttp(app: ExternalApplicationDefinition): Promise<boolean> {
     return new Promise((resolve) => {
-      fetch(app.url)
-        .then((resp) => {
-          resolve(resp.status === 200);
-        })
-        .catch(() => {
+      try {
+        if (!app.url) {
+          console.error('HTTP external app has no URL:', app);
           resolve(false);
-        });
+          return;
+        }
+
+        // Add a timeout to the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        fetch(app.url, { signal: controller.signal })
+          .then((resp) => {
+            clearTimeout(timeoutId);
+            resolve(resp.status === 200);
+          })
+          .catch((error) => {
+            clearTimeout(timeoutId);
+            console.error('HTTP connection error:', error);
+            resolve(false);
+          });
+      } catch (error) {
+        console.error('Error while establishing HTTP external app state:', error);
+        resolve(false);
+      }
     });
   }
 
   static async determineStateWithTcp(app: ExternalApplicationDefinition): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      try {
-        const socket = net.connect(app.port);
-
-        socket.on('connect', () => {
-          resolve(true);
-          socket.destroy();
-        });
-        socket.on('error', () => {
-          resolve(false);
-          socket.destroy();
-        });
-      } catch (e) {
-        reject(new Error('Error while establishing TCP external app state, see exception above'));
-        console.error(e);
+    try {
+      // Validate that we have a port
+      if (!app.port || typeof app.port !== 'number') {
+        console.error('TCP external app has no valid port:', app);
+        return false;
       }
-    });
+
+      // Use IPC-based TCP connection check
+      const result = await net.connect(app.port);
+      return result;
+    } catch (error) {
+      console.error('Error while establishing TCP external app state:', error);
+      // Return false instead of throwing to prevent unhandled promise rejection
+      return false;
+    }
   }
 
   static async kill(app: ExternalApplicationDefinition): Promise<void> {

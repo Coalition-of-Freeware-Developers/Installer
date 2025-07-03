@@ -1,4 +1,5 @@
 import React, { FC, memo } from 'react';
+import SimpleBar from 'simplebar-react';
 import { Addon, Publisher, PublisherButton } from 'renderer/utils/InstallerConfiguration';
 import * as BootstrapIcons from 'react-bootstrap-icons';
 import { ArrowRepeat, Check2, CloudArrowDownFill, Icon } from 'react-bootstrap-icons';
@@ -62,16 +63,18 @@ export const AddonBar: FC = ({ children }) => {
   const textClass = darkTheme ? 'text-quasi-white' : 'text-navy';
 
   return (
-    <div
-      className={`flex flex-col justify-between gap-y-5 ${textClass} ${darkTheme ? 'bg-navy-dark' : 'bg-quasi-white'} h-full px-6 py-7`}
-    >
-      <div className="flex flex-col -space-y-7">
+    <div className={`flex flex-col ${textClass} ${darkTheme ? 'bg-gradient' : 'bg-quasi-white'} h-full`}>
+      <div className="flex flex-col -space-y-7 px-6 pt-7">
         <h3 className={`${textClass} -mb-1 font-bold`}>{publisherData.name}</h3>
       </div>
 
-      <div className="flex grow flex-col">{children}</div>
+      <div className="flex-1 overflow-hidden">
+        <SimpleBar style={{ height: '100%' }} forceVisible="y" autoHide={false}>
+          <div className="flex flex-col gap-y-5 px-6 py-5">{children}</div>
+        </SimpleBar>
+      </div>
 
-      <div className="mt-auto flex flex-col gap-y-4">
+      <div className="flex flex-col gap-y-4 px-6 pb-7">
         {publisherData.buttons && PublisherButtons(publisherData.buttons)}
       </div>
     </div>
@@ -99,7 +102,9 @@ export const AddonBarItem: FC<AddonBarItemProps> = ({ addon, enabled, selected, 
     >
       <span className="mb-2.5 font-manrope text-2xl font-medium text-current">{addon.aircraftName}</span>
       <div className="mt-1 flex h-10 flex-row justify-between">
-        <img className="h-10 w-max" src={selected ? addon.titleImageUrl : addon.titleImageUrlSelected} />
+        <span className={`font-bold text-lg ${selected ? 'text-current' : 'text-current'}`}>
+          {selected ? addon.titleText : addon.titleTextSelected}
+        </span>
         {installState && <AddonBarItemStatus status={installState.status} />}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { FC } from 'react';
-import { setupMsfsCommunityPath, setupInstallPath, setupTempLocation } from 'renderer/actions/install-path.utils';
+import { setupInstallPath, setupTempLocation, setupXPlaneAircraftPath } from 'renderer/actions/install-path.utils';
 import settings, { useSetting } from 'renderer/rendererSettings';
 import { Toggle } from '../Toggle';
 
@@ -47,7 +47,7 @@ const XPlaneAircraftPathSettingItem = ({ value, setValue }: SettingItemProps<str
     value={value}
     setValue={setValue}
     name="X-Plane 12 Aircraft Directory"
-    callback={setupMsfsCommunityPath}
+    callback={setupXPlaneAircraftPath}
   />
 );
 

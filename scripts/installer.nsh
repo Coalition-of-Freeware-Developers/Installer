@@ -1,8 +1,8 @@
 !macro customInit
   ${ifNot} ${isUpdated}
-    nsExec::Exec '"$LOCALAPPDATA\fbw_installer\Update.exe" --uninstall -s'
-    delete "$LOCALAPPDATA\fbw_installer\Update.exe"
-    delete "$LOCALAPPDATA\fbw_installer\.dead"
-    rmDir "$LOCALAPPDATA\fbw_installer"
+    nsExec::Exec '"$LOCALAPPDATA\coalition_installer\Update.exe" --uninstall -s'
+    delete "$LOCALAPPDATA\coalition_installer\Update.exe"
+    delete "$LOCALAPPDATA\coalition_installer\.dead"
+    rmDir "$LOCALAPPDATA\coalition_installer"
   ${endIf}
 !macroend

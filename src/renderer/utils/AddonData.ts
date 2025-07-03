@@ -62,21 +62,38 @@ export class AddonData {
   }
 
   private static async latestVersionForReleasedTrack(addon: Addon): Promise<ReleaseInfo> {
-    return GitVersions.getReleases(addon.repoOwner, addon.repoName).then((releases) => ({
-      name: releases[0].name,
-      releaseDate: releases[0].publishedAt.getTime(),
-      changelogUrl: releases[0].htmlUrl,
-    }));
+    return GitVersions.getReleases(addon.repoOwner, addon.repoName)
+      .then((releases) => ({
+        name: releases[0].name,
+        releaseDate: releases[0].publishedAt.getTime(),
+        changelogUrl: releases[0].htmlUrl,
+      }))
+      .catch((error) => {
+        console.error('Error fetching releases for addon:', addon.key, error);
+        return {
+          name: 'Unknown',
+          releaseDate: 0,
+          changelogUrl: '',
+        };
+      });
   }
 
   private static async latestVersionForRollingTrack(
     addon: Addon,
     releaseModel: GithubBranchReleaseModel,
   ): Promise<ReleaseInfo> {
-    return GitVersions.getNewestCommit(addon.repoOwner, addon.repoName, releaseModel.branch).then((commit) => ({
-      name: commit.sha.substring(0, 7),
-      releaseDate: commit.timestamp.getTime(),
-    }));
+    return GitVersions.getNewestCommit(addon.repoOwner, addon.repoName, releaseModel.branch)
+      .then((commit) => ({
+        name: commit.sha.substring(0, 7),
+        releaseDate: commit.timestamp.getTime(),
+      }))
+      .catch((error) => {
+        console.error('Error fetching commit for addon:', addon.key, error);
+        return {
+          name: 'Unknown',
+          releaseDate: 0,
+        };
+      });
   }
 
   private static async latestVersionForCDN(_track: AddonTrack): Promise<ReleaseInfo> {

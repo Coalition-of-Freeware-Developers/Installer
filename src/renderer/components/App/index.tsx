@@ -16,6 +16,7 @@ import { ModalContainer } from '../Modal';
 import { PublisherSection } from 'renderer/components/PublisherSection';
 import * as packageInfo from '../../../../package.json';
 import { InstallManager } from 'renderer/utils/InstallManager';
+import { AutoDetection } from 'renderer/utils/AutoDetection';
 
 const window = globalThis.window as { electronAPI?: { checkForInstallerUpdate?: () => void } };
 
@@ -37,6 +38,20 @@ const App = () => {
     let cleanupUnlisten: (() => void) | undefined;
 
     const initializeApp = async (): Promise<void> => {
+      // Run X-Plane auto-detection on startup
+      console.log('[App] Running X-Plane auto-detection on startup');
+      try {
+        const shouldSkip = await AutoDetection.shouldSkipDetection();
+        if (!shouldSkip) {
+          const detection = await AutoDetection.detectXPlaneOnStartup();
+          if (detection.detected && detection.path) {
+            console.log(`[App] Auto-detected X-Plane 12 via ${detection.method}: ${detection.path}`);
+          }
+        }
+      } catch (error) {
+        console.warn('[App] X-Plane auto-detection failed:', error);
+      }
+
       for (const addon of addons) {
         if (!isMounted) return;
         await InstallManager.refreshAddonInstallState(addon);
@@ -164,7 +179,7 @@ const App = () => {
                 </NavBar>
               </div>
 
-              <div className="m-0 flex w-full bg-navy">
+              <div className="m-0 flex w-full bg-gradient">
                 <Switch>
                   <Route exact path="/">
                     <Redirect to={`/addon-section/${configuration.publishers[0].name}`} />

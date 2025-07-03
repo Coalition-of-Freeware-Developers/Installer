@@ -83,14 +83,14 @@ export const SettingsSection = (): JSX.Element => {
           <SideBarLink to="/settings/about">
             <span className="font-manrope text-3xl font-semibold">About</span>
           </SideBarLink>
-          <div className="relative mt-auto">
+          <div className="relative mt-auto" style={{ marginBottom: '50px' }}>
             <ResetButton type={ButtonType.Neutral} onClick={handleReset}>
               Reset Settings
             </ResetButton>
           </div>
         </SideBar>
 
-        <div className="grow border-l border-gray-700 bg-navy px-12 py-8">
+        <div className="grow border-l border-gray-700 bg-gradient px-12 py-8">
           <Route exact path="/settings">
             <Redirect to="/settings/general" />
           </Route>

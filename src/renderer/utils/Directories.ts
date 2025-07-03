@@ -85,6 +85,14 @@ export class Directories {
     return settings.get('mainSettings.xp12CustomSceneryPath') as Promise<string>;
   }
 
+  static async resourcesLocation(): Promise<string> {
+    return settings.get('mainSettings.xp12ResourcesPath') as Promise<string>;
+  }
+
+  static async pluginsLocation(): Promise<string> {
+    return settings.get('mainSettings.xp12PluginsPath') as Promise<string>;
+  }
+
   static async inAircraftLocation(targetDir: string): Promise<string> {
     return join(await Directories.aircraftLocation(), this.sanitize(targetDir));
   }
@@ -109,6 +117,24 @@ export class Directories {
 
   static async inCustomSceneryPackage(addon: Addon, targetDir: string): Promise<string> {
     const baseDir = await this.inCustomSceneryLocation(this.sanitize(addon.targetDirectory));
+    return join(baseDir, this.sanitize(targetDir));
+  }
+
+  static async inResourcesLocation(targetDir: string): Promise<string> {
+    return join(await Directories.resourcesLocation(), this.sanitize(targetDir));
+  }
+
+  static async inResourcesPackage(addon: Addon, targetDir: string): Promise<string> {
+    const baseDir = await this.inResourcesLocation(this.sanitize(addon.targetDirectory));
+    return join(baseDir, this.sanitize(targetDir));
+  }
+
+  static async inPluginsLocation(targetDir: string): Promise<string> {
+    return join(await Directories.pluginsLocation(), this.sanitize(targetDir));
+  }
+
+  static async inPluginsPackage(addon: Addon, targetDir: string): Promise<string> {
+    const baseDir = await this.inPluginsLocation(this.sanitize(addon.targetDirectory));
     return join(baseDir, this.sanitize(targetDir));
   }
 
@@ -161,8 +187,11 @@ export class Directories {
   }
   static async removeAlternativesForAddon(addon: Addon): Promise<void> {
     if (addon.alternativeNames) {
+      // Get the base installation directory for this addon's category
+      const baseInstallDir = await this.getAddonInstallLocation(addon);
+
       for (const altName of addon.alternativeNames) {
-        const altDir = await Directories.inInstallLocation(altName);
+        const altDir = join(baseInstallDir, this.sanitize(altName));
 
         const exists = await ipcFs.existsSync(altDir);
         if (exists) {
@@ -179,7 +208,7 @@ export class Directories {
   static async isGitInstall(target: string | Addon): Promise<boolean> {
     // TODO: Implement readlinkSync through IPC if needed for git detection
     // For now, return false as git detection through symlinks requires filesystem access
-    const targetDir = typeof target === 'string' ? target : await Directories.inInstallLocation(target.targetDirectory);
+    const targetDir = typeof target === 'string' ? target : await this.getAddonInstallPath(target);
     console.warn('Git installation detection through symlinks not available in renderer process for:', targetDir);
     return false;
 
@@ -195,5 +224,57 @@ export class Directories {
     //   return false;
     // }
     // return false;
+  }
+
+  /**
+   * Determines the appropriate installation directory for an addon based on its category
+   */
+  static async getAddonInstallLocation(addon: Addon): Promise<string> {
+    const category = addon.category;
+
+    console.log(`[Directories] Determining install location for addon "${addon.name}" with category: ${category}`);
+
+    switch (category) {
+      case '@aircraft':
+        console.log(`[Directories] Installing aircraft addon to Aircraft directory`);
+        return await this.aircraftLocation();
+
+      case '@scenery':
+        console.log(`[Directories] Installing scenery addon to Custom Scenery directory`);
+        return await this.customSceneryLocation();
+
+      case '@sceneryLibrary':
+        console.log(`[Directories] Installing scenery library to Custom Scenery directory`);
+        return await this.customSceneryLocation();
+
+      case '@plugin':
+      case '@plugins':
+        console.log(`[Directories] Installing plugin addon to Plugins directory`);
+        return await this.pluginsLocation();
+
+      case '@utility':
+        console.log(`[Directories] Installing utility addon to Resources directory`);
+        return await this.resourcesLocation();
+
+      default:
+        console.log(`[Directories] Unknown category "${category}", defaulting to Aircraft directory`);
+        return await this.aircraftLocation();
+    }
+  }
+
+  /**
+   * Gets the full installation path for an addon, including the addon's target directory
+   */
+  static async getAddonInstallPath(addon: Addon): Promise<string> {
+    const baseLocation = await this.getAddonInstallLocation(addon);
+    return join(baseLocation, this.sanitize(addon.targetDirectory));
+  }
+
+  /**
+   * Gets a subdirectory path within an addon's installation location
+   */
+  static async inAddonInstallLocation(addon: Addon, targetDir: string): Promise<string> {
+    const addonPath = await this.getAddonInstallPath(addon);
+    return join(addonPath, this.sanitize(targetDir));
   }
 }

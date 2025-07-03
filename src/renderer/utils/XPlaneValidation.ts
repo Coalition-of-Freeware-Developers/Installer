@@ -1,5 +1,6 @@
 import { join, normalize } from 'renderer/stubs/path';
 import ipcFs from 'renderer/utils/IPCFileSystem';
+import settings from 'renderer/rendererSettings';
 
 export class XPlaneValidation {
   /**
@@ -7,7 +8,7 @@ export class XPlaneValidation {
    * by checking for the presence of X-Plane.exe
    */
   static async isValidXPlaneBasePath(path: string): Promise<boolean> {
-    if (!path || path.trim() === '' || path === 'C:\\') {
+    if (!path || path.trim() === '' || path === 'C:\\' || path === 'notInstalled') {
       console.log(`[XPlaneValidation] Invalid or empty path provided: "${path}"`);
       return false;
     }
@@ -52,8 +53,8 @@ export class XPlaneValidation {
         return true;
       }
 
-      // Check common alternative names for X-Plane executable
-      const alternativeNames = ['X-Plane 12.exe', 'X-Plane12.exe', 'xplane.exe'];
+      // Check common alternative names for X-Plane executable (case-insensitive)
+      const alternativeNames = ['X-Plane 12.exe', 'X-Plane12.exe', 'xplane.exe', 'x-plane.exe'];
       for (const altName of alternativeNames) {
         const altPath = join(normalizedPath, altName);
         console.log(`[XPlaneValidation] Checking alternative name: "${altPath}"`);
@@ -110,6 +111,122 @@ export class XPlaneValidation {
       }
     } catch (error) {
       console.error('[XPlaneValidation] Error validating aircraft directory:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Validates that a given path is a valid custom scenery directory
+   */
+  static async isValidCustomSceneryDirectory(path: string): Promise<boolean> {
+    if (!path || path.trim() === '' || path === 'C:\\') {
+      console.log(`[XPlaneValidation] Invalid or empty custom scenery path provided: "${path}"`);
+      return false;
+    }
+
+    try {
+      const normalizedPath = normalize(path.trim());
+      console.log(`[XPlaneValidation] Checking custom scenery directory: "${normalizedPath}"`);
+
+      const dirExists = await ipcFs.existsSync(normalizedPath);
+      console.log(`[XPlaneValidation] Custom scenery directory exists: ${dirExists}`);
+
+      if (dirExists) {
+        console.log(`[XPlaneValidation] ✓ Valid custom scenery directory found at: ${normalizedPath}`);
+        return true;
+      } else {
+        console.log(`[XPlaneValidation] ✗ Custom scenery directory does not exist: ${normalizedPath}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('[XPlaneValidation] Error validating custom scenery directory:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Validates that a given path is a valid plugins directory
+   */
+  static async isValidPluginsDirectory(path: string): Promise<boolean> {
+    if (!path || path.trim() === '' || path === 'C:\\') {
+      console.log(`[XPlaneValidation] Invalid or empty plugins path provided: "${path}"`);
+      return false;
+    }
+
+    try {
+      const normalizedPath = normalize(path.trim());
+      console.log(`[XPlaneValidation] Checking plugins directory: "${normalizedPath}"`);
+
+      const dirExists = await ipcFs.existsSync(normalizedPath);
+      console.log(`[XPlaneValidation] Plugins directory exists: ${dirExists}`);
+
+      if (dirExists) {
+        console.log(`[XPlaneValidation] ✓ Valid plugins directory found at: ${normalizedPath}`);
+        return true;
+      } else {
+        console.log(`[XPlaneValidation] ✗ Plugins directory does not exist: ${normalizedPath}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('[XPlaneValidation] Error validating plugins directory:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Validates that a given path is a valid custom data directory
+   */
+  static async isValidCustomDataDirectory(path: string): Promise<boolean> {
+    if (!path || path.trim() === '' || path === 'C:\\') {
+      console.log(`[XPlaneValidation] Invalid or empty custom data path provided: "${path}"`);
+      return false;
+    }
+
+    try {
+      const normalizedPath = normalize(path.trim());
+      console.log(`[XPlaneValidation] Checking custom data directory: "${normalizedPath}"`);
+
+      const dirExists = await ipcFs.existsSync(normalizedPath);
+      console.log(`[XPlaneValidation] Custom data directory exists: ${dirExists}`);
+
+      if (dirExists) {
+        console.log(`[XPlaneValidation] ✓ Valid custom data directory found at: ${normalizedPath}`);
+        return true;
+      } else {
+        console.log(`[XPlaneValidation] ✗ Custom data directory does not exist: ${normalizedPath}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('[XPlaneValidation] Error validating custom data directory:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Validates that a given path is a valid resources directory
+   */
+  static async isValidResourcesDirectory(path: string): Promise<boolean> {
+    if (!path || path.trim() === '' || path === 'C:\\') {
+      console.log(`[XPlaneValidation] Invalid or empty resources path provided: "${path}"`);
+      return false;
+    }
+
+    try {
+      const normalizedPath = normalize(path.trim());
+      console.log(`[XPlaneValidation] Checking resources directory: "${normalizedPath}"`);
+
+      const dirExists = await ipcFs.existsSync(normalizedPath);
+      console.log(`[XPlaneValidation] Resources directory exists: ${dirExists}`);
+
+      if (dirExists) {
+        console.log(`[XPlaneValidation] ✓ Valid resources directory found at: ${normalizedPath}`);
+        return true;
+      } else {
+        console.log(`[XPlaneValidation] ✗ Resources directory does not exist: ${normalizedPath}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('[XPlaneValidation] Error validating resources directory:', error);
       return false;
     }
   }
@@ -172,6 +289,82 @@ export class XPlaneValidation {
     return {
       xplaneValid,
       aircraftValid,
+      errors,
+    };
+  }
+
+  /**
+   * Comprehensive validation for all X-Plane directories
+   */
+  static async validateAllXPlaneDirectories(): Promise<{
+    xplaneBaseValid: boolean;
+    aircraftValid: boolean;
+    customSceneryValid: boolean;
+    customDataValid: boolean;
+    resourcesValid: boolean;
+    pluginsValid: boolean;
+    errors: string[];
+  }> {
+    console.log('[XPlaneValidation] Validating all X-Plane directories');
+
+    const errors: string[] = [];
+
+    // Get all directory paths from settings
+    const xplaneBasePath = (await settings.get('mainSettings.xp12BasePath')) as string;
+    const aircraftPath = (await settings.get('mainSettings.xp12AircraftPath')) as string;
+    const customSceneryPath = (await settings.get('mainSettings.xp12CustomSceneryPath')) as string;
+    const customDataPath = (await settings.get('mainSettings.xp12CustomDataPath')) as string;
+    const resourcesPath = (await settings.get('mainSettings.xp12ResourcesPath')) as string;
+    const pluginsPath = (await settings.get('mainSettings.xp12PluginsPath')) as string;
+
+    // Validate each directory
+    const xplaneBaseValid = await this.isValidXPlaneBasePath(xplaneBasePath);
+    if (!xplaneBaseValid) {
+      errors.push(`Invalid X-Plane base directory: ${xplaneBasePath}`);
+    }
+
+    const aircraftValid = await this.isValidAircraftDirectory(aircraftPath);
+    if (!aircraftValid) {
+      errors.push(`Invalid Aircraft directory: ${aircraftPath}`);
+    }
+
+    const customSceneryValid = await this.isValidCustomSceneryDirectory(customSceneryPath);
+    if (!customSceneryValid) {
+      errors.push(`Invalid Custom Scenery directory: ${customSceneryPath}`);
+    }
+
+    const customDataValid = await this.isValidCustomDataDirectory(customDataPath);
+    if (!customDataValid) {
+      errors.push(`Invalid Custom Data directory: ${customDataPath}`);
+    }
+
+    const resourcesValid = await this.isValidResourcesDirectory(resourcesPath);
+    if (!resourcesValid) {
+      errors.push(`Invalid Resources directory: ${resourcesPath}`);
+    }
+
+    const pluginsValid = await this.isValidPluginsDirectory(pluginsPath);
+    if (!pluginsValid) {
+      errors.push(`Invalid Plugins directory: ${pluginsPath}`);
+    }
+
+    console.log('[XPlaneValidation] Directory validation complete:', {
+      xplaneBaseValid,
+      aircraftValid,
+      customSceneryValid,
+      customDataValid,
+      resourcesValid,
+      pluginsValid,
+      errorCount: errors.length,
+    });
+
+    return {
+      xplaneBaseValid,
+      aircraftValid,
+      customSceneryValid,
+      customDataValid,
+      resourcesValid,
+      pluginsValid,
       errors,
     };
   }

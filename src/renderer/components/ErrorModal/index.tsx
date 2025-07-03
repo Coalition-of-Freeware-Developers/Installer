@@ -5,6 +5,7 @@ import { Directories } from 'renderer/utils/Directories';
 import { Button, ButtonType } from 'renderer/components/Button';
 import ipcFs from 'renderer/utils/IPCFileSystem';
 import { XPlaneValidation } from 'renderer/utils/XPlaneValidation';
+import { AutoDetection } from 'renderer/utils/AutoDetection';
 
 // Extend window type to include electronAPI
 const window = globalThis.window as typeof globalThis.window & {
@@ -36,8 +37,24 @@ export const ErrorModal = (): React.JSX.Element => {
         console.log('[ErrorModal] Starting path checks...');
 
         // Check X-Plane base path
-        const xplanePath = await Directories.xplaneBasePath();
+        const xplanePath = await Directories.xp12BasePath();
         console.log('[ErrorModal] X-Plane path:', xplanePath);
+
+        // If X-Plane path is not set or invalid, try automatic detection
+        if (!xplanePath || xplanePath === 'notInstalled' || xplanePath === 'C:\\X-Plane 12') {
+          console.log('[ErrorModal] X-Plane path not set or using default, attempting automatic detection');
+
+          const shouldSkip = await AutoDetection.shouldSkipDetection();
+          if (!shouldSkip) {
+            const detection = await AutoDetection.detectXPlaneOnStartup();
+            if (detection.detected && detection.path) {
+              console.log(`[ErrorModal] Auto-detected X-Plane 12 via ${detection.method}: ${detection.path}`);
+              console.log('[ErrorModal] Auto-detection successful, reloading window');
+              window.electronAPI.reloadWindow();
+              return; // Exit early since we're reloading
+            }
+          }
+        }
 
         const xplaneValid =
           xplanePath === 'notInstalled' ? false : await XPlaneValidation.isValidXPlaneBasePath(xplanePath);
@@ -50,15 +67,14 @@ export const ErrorModal = (): React.JSX.Element => {
 
         // Check install locations
         const installLocation = await Directories.installLocation();
-        const communityLocation = await Directories.communityLocation();
         const tempLocation = await Directories.tempLocation();
 
-        console.log('[ErrorModal] Install paths:', { installLocation, communityLocation, tempLocation });
+        console.log('[ErrorModal] Install paths:', { installLocation, tempLocation });
 
         // Store install location for display
         setInstallLocationPath(installLocation);
 
-        // Validate aircraft directory - only check if the main install location exists
+        // Validate aircraft directory
         const aircraftValid = await XPlaneValidation.isValidAircraftDirectory(installLocation);
 
         // For temp location, just check if it exists (or if separate temp is disabled, use install location)
@@ -94,10 +110,12 @@ export const ErrorModal = (): React.JSX.Element => {
     const path = await setupXPlaneBasePath();
     if (path) {
       const aircraftDir = defaultAircraftDir(path);
-      settings.set('mainSettings.xplaneAircraftPath', aircraftDir);
+      settings.set('mainSettings.xp12AircraftPath', aircraftDir);
       settings.set('mainSettings.installPath', aircraftDir);
       settings.set('mainSettings.separateTempLocation', false);
       settings.set('mainSettings.tempLocation', aircraftDir);
+
+      // Reload window to reflect changes
       window.electronAPI.reloadWindow();
     }
     // If path is empty, user cancelled or validation failed, so don't reload
@@ -106,9 +124,11 @@ export const ErrorModal = (): React.JSX.Element => {
   const handleSelectInstallPath = async () => {
     const path = await setupInstallPath();
     if (path) {
-      settings.set('mainSettings.xplaneAircraftPath', path);
+      settings.set('mainSettings.xp12AircraftPath', path);
       settings.set('mainSettings.separateTempLocation', false);
       settings.set('mainSettings.tempLocation', path);
+
+      // Reload window to reflect changes
       window.electronAPI.reloadWindow();
     }
     // If path is empty, user cancelled or validation failed, so don't reload

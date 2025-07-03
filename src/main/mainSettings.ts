@@ -25,6 +25,8 @@ interface Settings {
     xp12AircraftPath: string;
     xp12CustomDataPath: string;
     xp12CustomSceneryPath: string;
+    xp12ResourcesPath: string;
+    xp12PluginsPath: string;
     installPath: string;
     separateTempLocation: boolean;
     tempLocation: string;

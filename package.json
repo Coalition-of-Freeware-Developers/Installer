@@ -137,6 +137,7 @@
     "remark-gfm": "^3.0.1",
     "semver": "7.6.3",
     "simplebar-react": "^3.2.6",
+    "steam-locate": "^1.0.3",
     "styled-components": "^5.3.11",
     "tabler-icons-react": "~1.56.0",
     "walkdir": "^0.4.1",

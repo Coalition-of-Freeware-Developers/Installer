@@ -5,6 +5,7 @@ import { ApplicationStatus } from 'renderer/components/AddonSection/Enums';
 import { ExternalApps } from 'renderer/utils/ExternalApps';
 import { join, extname, parse, dirname, normalize } from 'renderer/stubs/path';
 import { Directories } from 'renderer/utils/Directories';
+import { AddonInstallationManager } from 'renderer/utils/AddonInstallationManager';
 import ipcFs from 'renderer/utils/IPCFileSystem';
 
 // Simplified types
@@ -114,7 +115,7 @@ export class BackgroundServices {
     const commandLineArgs = backgroundService.commandLineArgs ? ` ${backgroundService.commandLineArgs.join(' ')}` : '';
     const shortcutDir = join(Directories.appData(), STARTUP_FOLDER_PATH);
     const shortcutPath = join(shortcutDir, `${backgroundService.executableFileBasename}.lnk`);
-    const installLocation = await Directories.inInstallLocation(addon.targetDirectory);
+    const installLocation = await AddonInstallationManager.getInstallationPath(addon);
     const exePath = join(installLocation, `${backgroundService.executableFileBasename}.exe`);
 
     if (enabled) {
@@ -153,7 +154,7 @@ export class BackgroundServices {
       throw new Error('Executable path much match /^[a-zA-Z\\d_-]+$/.');
     }
 
-    const installLocation = await Directories.inInstallLocation(addon.targetDirectory);
+    const installLocation = await AddonInstallationManager.getInstallationPath(addon);
     const exePath = normalize(join(installLocation, `${backgroundService.executableFileBasename}.exe`));
 
     await getShellOpenPath(exePath);

@@ -122,6 +122,11 @@ const electronAPI = {
     removeAllTemp: () => ipcRenderer.invoke(channels.fs.removeAllTemp),
   },
 
+  // Network operations
+  net: {
+    tcpConnect: (port: number, host?: string) => ipcRenderer.invoke(channels.net.tcpConnect, port, host),
+  },
+
   // Generic IPC methods for any remaining use cases
   send: (channel: string, ...args: unknown[]) => ipcRenderer.send(channel, ...args),
   invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),

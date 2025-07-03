@@ -25,27 +25,33 @@ export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
     () => [
       {
         location: {
-          in: 'community',
-          path: addon.targetDirectory,
+          in: 'package',
+          path: '',
         },
         title: 'Package Files',
       },
       ...(addon.myInstallPage?.directories ?? []),
     ],
-    [addon.targetDirectory, addon.myInstallPage?.directories],
+    [addon.myInstallPage?.directories],
   );
 
   useEffect(() => {
     const fulldirectoryLocal = async (def: DirectoryDefinition): Promise<string> => {
       switch (def.location.in) {
-        case 'community':
-          return await Directories.inInstallLocation(def.location.path);
         case 'package':
           return await Directories.inInstallPackage(addon, def.location.path);
         case 'packageCache':
           return await Directories.inInstallLocation(def.location.path); // Fallback
         case 'documents':
           return await Directories.inInstallLocation(def.location.path); // Fallback
+        case 'aircraft':
+          return await Directories.inAircraftLocation(def.location.path);
+        case 'customScenery':
+          return await Directories.inCustomSceneryLocation(def.location.path);
+        case 'plugins':
+          return await Directories.inPluginsLocation(def.location.path);
+        case 'customData':
+          return await Directories.inCustomDataLocation(def.location.path);
         default:
           return '';
       }
@@ -80,14 +86,20 @@ export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
 
   const fulldirectory = async (def: DirectoryDefinition): Promise<string> => {
     switch (def.location.in) {
-      case 'community':
-        return await Directories.inInstallLocation(def.location.path);
       case 'package':
         return await Directories.inInstallPackage(addon, def.location.path);
       case 'packageCache':
         return await Directories.inInstallLocation(def.location.path); // Fallback to install location
       case 'documents':
         return await Directories.inInstallLocation(def.location.path); // Fallback to install location
+      case 'aircraft':
+        return await Directories.inAircraftLocation(def.location.path);
+      case 'customScenery':
+        return await Directories.inCustomSceneryLocation(def.location.path);
+      case 'plugins':
+        return await Directories.inPluginsLocation(def.location.path);
+      case 'customData':
+        return await Directories.inCustomDataLocation(def.location.path);
       default:
         return '';
     }

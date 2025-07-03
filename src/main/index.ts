@@ -5,24 +5,32 @@ import * as packageInfo from '../../package.json';
 import settings, { persistWindowSettings } from './mainSettings';
 import channels from 'common/channels';
 import { InstallManager } from 'main/InstallManager';
+import { SteamDetectionMain } from 'main/SteamDetection';
 import Store from 'electron-store';
 import path from 'path';
 import fs from 'fs';
+import net from 'net';
 
 // Use process.cwd() instead of __dirname to avoid ESM conflicts
-const appDir = app.isPackaged ? path.dirname(process.execPath) : process.cwd();
-const preloadPath = app.isPackaged
-  ? path.join(appDir, 'resources', 'app.asar.unpacked', 'out', 'preload', 'preload.mjs')
-  : path.join(process.cwd(), 'out', 'preload', 'preload.mjs');
+// const appDir = app.isPackaged ? path.dirname(process.execPath) : process.cwd();
+
+// Get proper preload path
+const getPreloadPath = () => {
+  if (app.isPackaged) {
+    // In packaged mode, files are inside app.asar
+    const asarPath = path.join(process.resourcesPath, 'app.asar', 'out', 'preload', 'preload.mjs');
+    console.log('Using preload path (packaged):', asarPath);
+    return asarPath;
+  } else {
+    return path.join(process.cwd(), 'out', 'preload', 'preload.mjs');
+  }
+};
 
 // Define renderer paths
 const getRendererPaths = () => {
   if (app.isPackaged) {
-    return [
-      path.join(appDir, 'resources', 'app.asar.unpacked', 'out', 'renderer', 'index.html'),
-      path.join(process.resourcesPath, 'app', 'out', 'renderer', 'index.html'),
-      path.join(appDir, 'out', 'renderer', 'index.html'),
-    ];
+    // In packaged mode, files are inside app.asar
+    return [path.join(process.resourcesPath, 'app.asar', 'out', 'renderer', 'index.html')];
   } else {
     return [path.join(process.cwd(), 'out', 'renderer', 'index.html')];
   }
@@ -44,15 +52,15 @@ function initializeApp() {
       minHeight: 800,
       frame: false,
       icon: 'src/main/icons/icon.ico',
-      backgroundColor: '#1b2434',
+      backgroundColor: '#333333',
       show: false,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: preloadPath,
-        webSecurity: !import.meta.env.DEV, // Only disable in development
+        preload: getPreloadPath(),
+        webSecurity: !app.isPackaged, // Only disable in development
         sandbox: false, // Keep disabled for filesystem access and IPC functionality
-        allowRunningInsecureContent: import.meta.env.DEV, // Only allow in development
+        allowRunningInsecureContent: false, // Disabled for security
         experimentalFeatures: false, // Disable experimental features for stability
         javascript: true, // Explicitly enable JavaScript
         plugins: false, // Disable plugins for security
@@ -107,6 +115,27 @@ function initializeApp() {
 
     mainWindow.once('ready-to-show', () => {
       mainWindow.show();
+    });
+
+    // Add error handling for renderer process
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      console.log(`[RENDERER] ${level}: ${message} at ${sourceId}:${line}`);
+    });
+
+    mainWindow.webContents.on('crashed', (event, killed) => {
+      console.error('Renderer process crashed:', { event, killed });
+    });
+
+    mainWindow.webContents.on('unresponsive', () => {
+      console.error('Renderer process became unresponsive');
+    });
+
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      console.error('Failed to load:', { errorCode, errorDescription, validatedURL, isMainFrame });
+    });
+
+    mainWindow.webContents.on('did-finish-load', () => {
+      console.log('Renderer finished loading');
     });
 
     mainWindow.on('closed', () => {
@@ -258,7 +287,7 @@ function initializeApp() {
         }
 
         const TEMP_DIRECTORY_PREFIXES_FOR_CLEANUP = [
-          'flybywire_current_install',
+          'coalition_current_install',
           'coalition_current_install',
           'coalition-current-install',
         ];
@@ -287,6 +316,48 @@ function initializeApp() {
       }
     });
 
+    // Network functionality handlers
+    ipcMain.handle(channels.net.tcpConnect, async (_, port: number, host: string = 'localhost'): Promise<boolean> => {
+      return new Promise((resolve) => {
+        try {
+          // Validate inputs
+          if (!port || typeof port !== 'number' || port <= 0 || port > 65535) {
+            console.error('Invalid port number:', port);
+            resolve(false);
+            return;
+          }
+
+          if (!host || typeof host !== 'string') {
+            console.error('Invalid host:', host);
+            resolve(false);
+            return;
+          }
+
+          const socket = net.connect(port, host);
+
+          socket.on('connect', () => {
+            resolve(true);
+            socket.destroy();
+          });
+
+          socket.on('error', (error) => {
+            console.error('Socket error:', error);
+            resolve(false);
+            socket.destroy();
+          });
+
+          // Add a timeout to prevent hanging
+          socket.setTimeout(5000, () => {
+            resolve(false);
+            socket.destroy();
+          });
+        } catch (error) {
+          console.error('Error creating TCP connection:', error);
+          resolve(false);
+        }
+      });
+    });
+
     const lastX = settings.get<string, number>('cache.main.lastWindowX');
     const lastY = settings.get<string, number>('cache.main.lastWindowY');
     const shouldMaximize = settings.get<string, boolean>('cache.main.maximized');
@@ -303,10 +374,7 @@ function initializeApp() {
 
     mainWindow.center();
 
-    if (
-      (settings.get('mainSettings.configDownloadUrl') as string) ===
-      'https://cdn.flybywiresim.com/installer/config/production.json'
-    ) {
+    if ((settings.get('mainSettings.configDownloadUrl') as string) === '') {
       settings.set('mainSettings.configDownloadUrl', packageInfo.configUrls.production);
     }
 
@@ -366,21 +434,59 @@ function initializeApp() {
       loadRendererWithRetry().catch(console.error);
     } else {
       // In production, load the built HTML file
-      const rendererPaths = getRendererPaths();
-      const rendererPath = rendererPaths[0];
-      console.log('Loading renderer from:', rendererPath);
-      mainWindow.loadFile(rendererPath).catch((error) => {
-        console.error('Failed to load renderer file:', error);
-        // Fallback: try loading the index.html from different locations
-        const fallbackPaths = rendererPaths.slice(1);
+      const loadRendererFile = async () => {
+        const rendererPaths = getRendererPaths();
 
-        for (const fallbackPath of fallbackPaths) {
-          console.log('Trying fallback path:', fallbackPath);
-          mainWindow.loadFile(fallbackPath).catch(() => {
-            console.log('Fallback failed for:', fallbackPath);
-          });
+        for (const rendererPath of rendererPaths) {
+          try {
+            console.log('Attempting to load renderer from:', rendererPath);
+
+            // Check if the file exists before trying to load it
+            if (fs.existsSync(rendererPath)) {
+              console.log('Found renderer file at:', rendererPath);
+              await mainWindow.loadFile(rendererPath);
+              console.log('Successfully loaded renderer from:', rendererPath);
+              return;
+            } else {
+              console.log('Renderer file not found at:', rendererPath);
+            }
+          } catch (error) {
+            console.error('Failed to load renderer from:', rendererPath, error);
+          }
         }
-      });
+
+        // If we get here, no renderer file was found
+        console.error('No renderer file found at any expected location');
+        const fallbackHTML = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Installer Loading Error</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #1b2434; color: white; }
+                .error { color: #ff6b6b; margin-bottom: 20px; }
+              </style>
+            </head>
+            <body>
+              <h1>Renderer Loading Error</h1>
+              <div class="error">Could not find the renderer files.</div>
+              <p>Searched locations:</p>
+              <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
+                ${rendererPaths.map((p) => `<li>${p}</li>`).join('')}
+              </ul>
+              <p>Please reinstall the application.</p>
+            </body>
+          </html>
+        `;
+
+        try {
+          await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fallbackHTML)}`);
+        } catch (fallbackError) {
+          console.error('Even fallback HTML failed to load:', fallbackError);
+        }
+      };
+
+      loadRendererFile().catch(console.error);
     }
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -399,17 +505,17 @@ function initializeApp() {
       if (packageInfo.version.includes('dev')) {
         updateOptions = {
           provider: 'generic' as const,
-          url: 'https://flybywirecdn.com/installer/dev',
+          url: 'null',
         };
       } else if (packageInfo.version.includes('rc')) {
         updateOptions = {
           provider: 'generic' as const,
-          url: 'https://flybywirecdn.com/installer/rc',
+          url: 'null',
         };
       } else {
         updateOptions = {
           provider: 'generic' as const,
-          url: 'https://flybywirecdn.com/installer/release',
+          url: 'null',
         };
       }
 
@@ -503,7 +609,7 @@ function initializeApp() {
     app.quit();
   }
 
-  app.setAppUserModelId('FlyByWire Installer');
+  app.setAppUserModelId('Coalition of Freeware Developers - Installer');
 
   let mainWindow: BrowserWindow;
 
@@ -564,5 +670,6 @@ function initializeApp() {
 }
 
 InstallManager.setupIpcListeners();
+SteamDetectionMain.setupIpcListeners();
 
 initializeApp();

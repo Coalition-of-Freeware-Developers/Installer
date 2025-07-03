@@ -4,6 +4,7 @@ import { PromptModal } from 'renderer/components/Modal';
 import { ButtonType } from 'renderer/components/Button';
 import { deleteDownload, registerNewDownload, updateDownloadProgress } from 'renderer/redux/features/downloads';
 import { Directories } from 'renderer/utils/Directories';
+import { AddonInstallationManager } from 'renderer/utils/AddonInstallationManager';
 import ipcFs from 'renderer/utils/IPCFileSystem';
 import { ApplicationStatus, InstallStatus, InstallStatusCategories } from 'renderer/components/AddonSection/Enums';
 import {
@@ -50,8 +51,24 @@ export class InstallManager {
   })();
 
   private static get electronAPI() {
-    if (typeof window !== 'undefined' && (window as { electronAPI?: any }).electronAPI) {
-      return (window as { electronAPI: any }).electronAPI;
+    if (typeof window !== 'undefined' && (window as { electronAPI?: unknown }).electronAPI) {
+      return (
+        window as unknown as {
+          electronAPI: {
+            installManager: {
+              onInstallEvent: (
+                handler: (event: unknown, installID: number, eventName: string, ...args: unknown[]) => void,
+              ) => void;
+              removeInstallEventListener: (
+                handler: (event: unknown, installID: number, eventName: string, ...args: unknown[]) => void,
+              ) => void;
+              cancelInstall: (installID: number) => void;
+              installFromUrl: (installID: number, url: string, tempDir: string, destDir: string) => Promise<unknown>;
+              uninstall: (installDir: string, directories: string[]) => Promise<void>;
+            };
+          };
+        }
+      ).electronAPI;
     }
     throw new Error('electronAPI is not available. Make sure preload script is properly loaded.');
   }
@@ -204,8 +221,33 @@ export class InstallManager {
       }
     }
 
-    const destDir = await Directories.inInstallLocation(addon.targetDirectory);
+    // Prepare installation environment using category-based logic
+    const installPrep = await AddonInstallationManager.prepareInstallationEnvironment(addon);
+
+    if (!installPrep.success) {
+      console.error(`[InstallManager](installAddon) Installation preparation failed: ${installPrep.errorMessage}`);
+
+      await showModal(
+        <PromptModal
+          title="Installation Error"
+          bodyText={
+            `Cannot install ${addon.name} because the required directory is not properly configured:\n\n` +
+            `${installPrep.errorMessage}\n\n` +
+            `Please check your X-Plane 12 installation and directory settings.`
+          }
+          confirmColor={ButtonType.Neutral}
+        />,
+      );
+
+      setErrorState();
+      startResetStateTimer();
+      return InstallResult.Failure;
+    }
+
+    const destDir = installPrep.installPath;
     const tempDir = await Directories.temp();
+
+    console.log(`[InstallManager](installAddon) Installing ${addon.name} (${addon.category}) to: ${destDir}`);
 
     const updateChecker = new UpdateChecker();
     const updateInfo = await updateChecker.needsUpdate(track.url, destDir, { forceCacheBust: true });
@@ -500,9 +542,9 @@ export class InstallManager {
       await BackgroundServices.setAutoStartEnabled(addon, publisher, false);
     }
 
-    const installDir = Directories.inInstallLocation(addon.targetDirectory);
+    const installDir = await AddonInstallationManager.getInstallationPath(addon);
 
-    await this.electronAPI.installManager.uninstall(installDir, [Directories.inPackages(addon.targetDirectory)]);
+    await this.electronAPI.installManager.uninstall(installDir, [await Directories.inPackages(addon.targetDirectory)]);
 
     this.setCurrentInstallState(addon, { status: InstallStatus.NotInstalled });
     this.setCurrentlyInstalledTrack(addon, null);
@@ -566,7 +608,8 @@ export class InstallManager {
       return installedTrack;
     }
 
-    const installDir = await Directories.inInstallLocation(addon.targetDirectory);
+    // Use the new category-based installation path
+    const installDir = await AddonInstallationManager.getInstallationPath(addon);
     const install = this.getAddonInstall(installDir);
 
     if (!install) {
@@ -596,10 +639,14 @@ export class InstallManager {
         return i;
       }
     }
+    // If no available controller found, return the last index
+    return this.abortControllers.length - 1;
   }
   private static async determineAddonInstallStatus(addon: Addon): Promise<InstallState> {
     console.log('[InstallManager](determineAddonInstallStatus) Checking install status');
-    const installDir = await Directories.inInstallLocation(addon.targetDirectory);
+
+    // Use the new category-based installation path
+    const installDir = await AddonInstallationManager.getInstallationPath(addon);
     const addonInstalledTrack = await this.determineAddonInstalledTrack(addon);
     const addonSelectedTrack = this.getAddonSelectedTrack(addon);
 
@@ -677,7 +724,7 @@ export class InstallManager {
         continue;
       }
 
-      const installDir = await Directories.inInstallLocation(addon.targetDirectory);
+      const installDir = await AddonInstallationManager.getInstallationPath(addon);
       const updateChecker = new UpdateChecker();
       const updateInfo = await updateChecker.needsUpdate(track.url, installDir, { forceCacheBust: true });
 

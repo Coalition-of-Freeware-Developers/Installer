@@ -13,7 +13,7 @@ export const SideBar: FC<SideBarProps> = ({ className, children }) => {
 
   return (
     <div
-      className={`flex flex-col gap-y-5 ${textClass} ${darkTheme ? 'bg-navy-dark' : 'bg-quasi-white'} h-full px-6 py-7 ${className}`}
+      className={`flex flex-col gap-y-5 ${textClass} ${darkTheme ? 'bg-gradient' : 'bg-quasi-white'} h-full px-6 py-7 ${className}`}
       style={{ width: '28rem' }}
     >
       {children}
@@ -40,7 +40,7 @@ export const SideBarItem: FC<SideBarItemProps> = ({
   const defaultBorderStyle = darkTheme ? 'border-navy-dark' : 'border-quasi-white';
 
   const enabledUnselectedStyle = darkTheme
-    ? 'bg-navy-dark border-navy-light text-quasi-white'
+    ? 'bg-gradient border-navy-light text-quasi-white'
     : 'bg-grey-medium text-navy';
 
   const dependantStyles = selected

@@ -25,6 +25,19 @@ const document = globalThis.document;
 console.log('Renderer script is starting...');
 console.log('electronAPI available:', typeof window.electronAPI !== 'undefined');
 console.log('electronStore available:', typeof window.electronStore !== 'undefined');
+console.log('React available:', typeof React !== 'undefined');
+console.log('ReactDOM available:', typeof ReactDOM !== 'undefined');
+console.log('Document ready state:', document.readyState);
+console.log('Root element exists:', !!document.getElementById('root'));
+
+// Add error handler for unhandled errors
+window.addEventListener('error', (event) => {
+  console.error('Unhandled error in renderer:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection in renderer:', event.reason);
+});
 
 // Obtain configuration and use it
 InstallerConfiguration.obtain()
@@ -34,20 +47,25 @@ InstallerConfiguration.obtain()
     for (const publisher of config.publishers) {
       for (const addon of publisher.addons) {
         if (addon.repoOwner && addon.repoName) {
-          GitVersions.getReleases(addon.repoOwner, addon.repoName, false, 0, 5).then((res) => {
-            const content = res.map((release) => ({
-              name: release.name,
-              publishedAt: release.publishedAt.getTime(),
-              htmlUrl: release.htmlUrl,
-              body: release.body,
-            }));
+          GitVersions.getReleases(addon.repoOwner, addon.repoName, false, 0, 5)
+            .then((res) => {
+              const content = res.map((release) => ({
+                name: release.name,
+                publishedAt: release.publishedAt.getTime(),
+                htmlUrl: release.htmlUrl,
+                body: release.body,
+              }));
 
-            if (content.length) {
-              store.dispatch(addReleases({ key: addon.key, releases: content }));
-            } else {
+              if (content.length) {
+                store.dispatch(addReleases({ key: addon.key, releases: content }));
+              } else {
+                store.dispatch(addReleases({ key: addon.key, releases: [] }));
+              }
+            })
+            .catch((error) => {
+              console.error('Error fetching releases for addon:', addon.key, error);
               store.dispatch(addReleases({ key: addon.key, releases: [] }));
-            }
-          });
+            });
         } else {
           store.dispatch(addReleases({ key: addon.key, releases: [] }));
         }

@@ -34,4 +34,7 @@ export default {
     clipboardWriteText: 'remote/clipboardWriteText',
   },
   openPath: 'openPath',
+  net: {
+    tcpConnect: 'net/tcpConnect',
+  },
 };

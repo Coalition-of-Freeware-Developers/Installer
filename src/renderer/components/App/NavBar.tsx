@@ -10,13 +10,13 @@ import { InstallStatus } from 'renderer/components/AddonSection/Enums';
 export const NavBar: FC = ({ children }) => {
   const darkTheme = useIsDarkTheme();
 
-  const bg = darkTheme ? 'bg-navy-dark' : 'bg-navy';
+  const bg = darkTheme ? 'bg-gradient' : 'bg-navy';
 
   return (
     <div className={`${bg} flex h-full flex-col justify-between border-r border-navy-light px-6 py-7`}>
       <div className="flex flex-col gap-y-5">{children}</div>
 
-      <div className="mt-auto flex flex-col gap-y-5">
+      <div className="mt-auto flex flex-col gap-y-5" style={{ marginBottom: '50px' }}>
         {import.meta.env.DEV && (
           <NavbarItem to="/debug" className="border-none">
             <Wrench className="text-gray-100" size={28} strokeWidth={1} />

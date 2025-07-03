@@ -51,6 +51,11 @@ interface ElectronAPI {
     removeAllTemp: () => Promise<{ success: boolean; error?: string }>;
   };
 
+  // Network operations
+  net: {
+    tcpConnect: (port: number, host?: string) => Promise<boolean>;
+  };
+
   // Generic IPC methods
   send: (channel: string, ...args: unknown[]) => void;
   invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;

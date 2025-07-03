@@ -8,7 +8,7 @@ export interface ExternalLink {
 
 export interface DirectoryDefinition {
   location: {
-    in: 'community' | 'packageCache' | 'package' | 'documents';
+    in: 'packageCache' | 'package' | 'documents' | 'aircraft' | 'customScenery' | 'plugins' | 'customData';
     path: string;
   };
 }
@@ -102,8 +102,12 @@ export interface Addon {
   repoName?: string;
   category?: `@${string}`;
   aircraftName: string;
-  titleImageUrl: string;
-  titleImageUrlSelected: string;
+  titleText: string;
+  titleTextSelected: string;
+  /** @deprecated Use titleText instead */
+  titleImageUrl?: string;
+  /** @deprecated Use titleTextSelected instead */
+  titleImageUrlSelected?: string;
   backgroundImageUrls: string[];
   backgroundImageShadow?: boolean;
   shortDescription: string;
@@ -120,9 +124,7 @@ export interface Addon {
 
   /**
    * Configuration for the "My Install" page of this addon. If not provided, a default page described below will be shown:
-   *
    * Links: none
-   *
    * Directories: Package in community directory
    *
    * If it is specified, the above elements are appended to the specified page contents.
@@ -351,7 +353,7 @@ export interface Configuration {
 
 export class InstallerConfiguration {
   static async obtain(): Promise<Configuration> {
-    const forceUseLocalConfig = settings.get('mainSettings.configForceUseLocal') as boolean;
+    const forceUseLocalConfig = settings.get('mainSettings.configForceUseLocal') as unknown as boolean;
 
     if (forceUseLocalConfig) {
       return this.loadConfigurationFromLocalStorage();
@@ -387,7 +389,7 @@ export class InstallerConfiguration {
   }
 
   private static async fetchConfigurationFromCdn(): Promise<Configuration> {
-    const url = `${settings.get('mainSettings.configDownloadUrl') as string}?cache-killer=${Math.random()}`;
+    const url = `${settings.get('mainSettings.configDownloadUrl') as unknown as string}?cache-killer=${Math.random()}`;
 
     console.log('Obtaining configuration from CDN (%s)', url);
     return await fetch(url)

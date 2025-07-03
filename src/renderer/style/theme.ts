@@ -5,35 +5,35 @@ export const fontSizes = {
 };
 
 export const colors = {
-  positive: '#00b853',
-  red: '#fc3a3a',
-  redDark: '#F70404',
-  redDarker: '#E40303',
-  redDarkest: '#D10303',
+  positive: '#22c55e',
+  red: '#ef4444',
+  redDark: '#dc2626',
+  redDarker: '#b91c1c',
+  redDarkest: '#991b1b',
 
-  title: '#FFFFFFDD',
-  titleContrast: '#FFFFFF',
+  title: '#f8fafc',
+  titleContrast: '#ffffff',
 
-  mutedText: '#929292',
-  mutedTextDark: '#666666',
+  mutedText: '#9ca3af',
+  mutedTextDark: '#6b7280',
 
-  listItem: '#393939',
-  listItemSelected: '#474747',
+  listItem: '#1e293b',
+  listItemSelected: '#334155',
 
-  cardBackground: '#313131',
-  cardBackgroundHover: '#3b3b3b',
-  cardForeground: '#FFFFFFDD',
-  cardSelected: '#00C2CB',
-  cardInstalled: '#2E995E',
+  cardBackground: '#0f172a',
+  cardBackgroundHover: '#1e293b',
+  cardForeground: '#f8fafc',
+  cardSelected: '#0ea5e9',
+  cardInstalled: '#22c55e',
 
-  gray50: '#f9fafb',
-  navy: '#1b2434',
-  navyLightest: '#273347',
-  navyLighter: '#222c3d',
-  navy400: '#1f2633',
-  teal50: '#c2cbcc',
-  tealLight: '#00c2cc',
-  tealLightContrast: '#00afb7',
+  gray50: '#f8fafc',
+  navy: '#0f172a',
+  navyLightest: '#334155',
+  navyLighter: '#1e293b',
+  navy400: '#475569',
+  teal50: '#f0fdfa',
+  tealLight: '#0ea5e9',
+  tealLightContrast: '#0284c7',
 };
 
 export const dropShadow = css`
