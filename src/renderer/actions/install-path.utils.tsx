@@ -14,16 +14,40 @@ import { SteamDetection } from 'renderer/utils/SteamDetection';
 const selectPath = async (currentPath: string, dialogTitle: string, setting: string): Promise<string> => {
   console.log(`[InstallPathUtils] Selecting path for setting: ${setting}`);
 
-  const path = await globalThis.window.electronAPI.remote.showOpenDialog({
-    title: dialogTitle,
-    defaultPath: typeof currentPath === 'string' ? currentPath : '',
-    properties: ['openDirectory'],
-  });
+  try {
+    // Check if electronAPI is available
+    if (!globalThis.window?.electronAPI?.remote?.showOpenDialog) {
+      console.error('[InstallPathUtils] electronAPI.remote.showOpenDialog not available');
+      await globalThis.window.electronAPI?.remote?.showMessageBox?.({
+        title: 'Error',
+        message: 'Directory selection is not available. Please restart the application.',
+        type: 'error',
+        buttons: ['OK'],
+      });
+      return '';
+    }
 
-  if (path.filePaths[0]) {
+    console.log(`[InstallPathUtils] Opening directory dialog with title: "${dialogTitle}"`);
+    const path = await globalThis.window.electronAPI.remote.showOpenDialog({
+      title: dialogTitle,
+      defaultPath: typeof currentPath === 'string' ? currentPath : '',
+      properties: ['openDirectory'],
+    });
+
+    if (!path) {
+      console.log('[InstallPathUtils] showOpenDialog returned null/undefined');
+      return '';
+    }
+
+    if (!path.filePaths || path.filePaths.length === 0) {
+      console.log('[InstallPathUtils] User cancelled directory selection or no paths returned');
+      return '';
+    }
+
     const selectedPath = path.filePaths[0];
     console.log(`[InstallPathUtils] User selected path: "${selectedPath}"`);
 
+    // Validation logic continues...
     // If this is for X-Plane base path, validate it
     if (setting === 'mainSettings.xp12BasePath') {
       console.log(`[InstallPathUtils] Validating X-Plane base path...`);
@@ -94,8 +118,14 @@ const selectPath = async (currentPath: string, dialogTitle: string, setting: str
     console.log(`[InstallPathUtils] Setting "${setting}" to: "${selectedPath}"`);
     settings.set(setting, selectedPath);
     return selectedPath;
-  } else {
-    console.log(`[InstallPathUtils] User cancelled path selection`);
+  } catch (error) {
+    console.error('[InstallPathUtils] Error in directory selection:', error);
+    await globalThis.window.electronAPI?.remote?.showMessageBox?.({
+      title: 'Error',
+      message: `Failed to open directory selection dialog: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      type: 'error',
+      buttons: ['OK'],
+    });
     return '';
   }
 };

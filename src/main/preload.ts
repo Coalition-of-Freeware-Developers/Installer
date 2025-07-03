@@ -173,6 +173,24 @@ try {
   contextBridge.exposeInMainWorld('electronAPI', electronAPI);
   contextBridge.exposeInMainWorld('electronStore', electronStore);
   console.log('Context bridge setup complete');
+
+  // Debug: Test Steam detection IPC availability
+  console.log('Testing Steam detection IPC availability...');
+  setTimeout(() => {
+    if (globalThis.window?.electronAPI?.invoke) {
+      console.log('electronAPI.invoke is available in window');
+      globalThis.window.electronAPI
+        .invoke('steam:findXPlane12')
+        .then((result) => {
+          console.log('Steam detection test result:', result);
+        })
+        .catch((error) => {
+          console.error('Steam detection test error:', error);
+        });
+    } else {
+      console.error('electronAPI.invoke not available in window');
+    }
+  }, 1000);
 } catch (error) {
   console.error('Failed to set up context bridge:', error);
   // Fallback for when contextIsolation is disabled

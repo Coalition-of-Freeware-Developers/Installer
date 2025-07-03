@@ -41,9 +41,12 @@ export class AutoDetection {
           console.log(`[AutoDetection] ✓ Steam X-Plane 12 detected: ${steamPath}`);
           await this.setupDetectedPath(steamPath);
           return { detected: true, path: steamPath, method: 'steam' };
+        } else {
+          console.log('[AutoDetection] Steam detection returned null - no Steam X-Plane 12 found');
         }
       } catch (error) {
-        console.warn('[AutoDetection] Steam detection failed:', error);
+        console.warn('[AutoDetection] Steam detection failed with error:', error);
+        // Continue to standard detection instead of failing
       }
 
       // Try standard installation paths

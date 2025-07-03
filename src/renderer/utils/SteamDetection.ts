@@ -13,23 +13,32 @@ export class SteamDetection {
     try {
       console.log('[SteamDetection] Requesting Steam X-Plane 12 detection from main process');
 
-      // Request Steam detection from main process
-      if (globalThis.window?.electronAPI?.invoke) {
-        const steamPath = (await globalThis.window.electronAPI.invoke('steam:findXPlane12')) as string | null;
-
-        if (steamPath) {
-          console.log(`[SteamDetection] ✓ Steam X-Plane 12 found via steam-locate: ${steamPath}`);
-          return steamPath;
-        } else {
-          console.log('[SteamDetection] Steam X-Plane 12 not found via steam-locate');
-          return null;
-        }
-      } else {
+      // Check if electronAPI is available
+      if (!globalThis.window?.electronAPI?.invoke) {
         console.warn('[SteamDetection] electronAPI.invoke not available, using fallback');
         return null;
       }
+
+      // Request Steam detection from main process with timeout
+      const steamPath = await Promise.race([
+        globalThis.window.electronAPI.invoke('steam:findXPlane12') as Promise<string | null>,
+        new Promise<null>((resolve) =>
+          setTimeout(() => {
+            console.warn('[SteamDetection] Steam detection timeout after 10 seconds');
+            resolve(null);
+          }, 10000),
+        ),
+      ]);
+
+      if (steamPath) {
+        console.log(`[SteamDetection] ✓ Steam X-Plane 12 found via steam-locate: ${steamPath}`);
+        return steamPath;
+      } else {
+        console.log('[SteamDetection] Steam X-Plane 12 not found via steam-locate');
+        return null;
+      }
     } catch (error) {
-      console.error('[SteamDetection] Error detecting Steam X-Plane 12:', error);
+      console.error('SteamDetection - Error detecting Steam X-Plane 12:', error);
       return null;
     }
   }

@@ -17,12 +17,23 @@ import net from 'net';
 // Get proper preload path
 const getPreloadPath = () => {
   if (app.isPackaged) {
-    // In packaged mode, files are inside app.asar
-    const asarPath = path.join(process.resourcesPath, 'app.asar', 'out', 'preload', 'preload.mjs');
-    console.log('Using preload path (packaged):', asarPath);
-    return asarPath;
+    // In packaged mode, preload script is in the resources directory
+    const preloadPath = path.join(process.resourcesPath, 'app.asar', 'out', 'preload', 'preload.mjs');
+    console.log('Using preload path (packaged):', preloadPath);
+
+    // Verify the file exists, fallback if needed
+    if (fs.existsSync(preloadPath)) {
+      return preloadPath;
+    } else {
+      // Try alternative path
+      const altPath = path.join(process.resourcesPath, 'app.asar', 'out', 'main', 'preload.js');
+      console.log('Fallback preload path (packaged):', altPath);
+      return altPath;
+    }
   } else {
-    return path.join(process.cwd(), 'out', 'preload', 'preload.mjs');
+    const devPath = path.join(process.cwd(), 'out', 'preload', 'preload.mjs');
+    console.log('Using preload path (dev):', devPath);
+    return devPath;
   }
 };
 
@@ -210,7 +221,15 @@ function initializeApp() {
     });
 
     ipcMain.handle(channels.remote.showOpenDialog, async (_, options: OpenDialogOptions) => {
-      return await dialog.showOpenDialog(mainWindow, options);
+      try {
+        console.log('[Main] showOpenDialog called with options:', options);
+        const result = await dialog.showOpenDialog(mainWindow, options);
+        console.log('[Main] showOpenDialog result:', result);
+        return result;
+      } catch (error) {
+        console.error('[Main] showOpenDialog error:', error);
+        return { canceled: true, filePaths: [] };
+      }
     });
 
     ipcMain.handle(channels.remote.showMessageBox, async (_, options: MessageBoxOptions) => {
@@ -431,7 +450,9 @@ function initializeApp() {
     };
 
     if (!app.isPackaged) {
-      loadRendererWithRetry().catch(console.error);
+      loadRendererWithRetry().catch((error) => {
+        console.error('Error loading renderer with retry:', error);
+      });
     } else {
       // In production, load the built HTML file
       const loadRendererFile = async () => {
@@ -486,11 +507,20 @@ function initializeApp() {
         }
       };
 
-      loadRendererFile().catch(console.error);
+      loadRendererFile().catch((error) => {
+        console.error('Error loading renderer file:', error);
+      });
     }
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url).then();
+      shell
+        .openExternal(url)
+        .then(() => {
+          // URL opened successfully
+        })
+        .catch((error) => {
+          console.error('Error opening external URL:', error);
+        });
       return { action: 'deny' };
     });
 
