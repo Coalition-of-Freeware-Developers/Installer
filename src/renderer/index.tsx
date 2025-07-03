@@ -26,7 +26,7 @@ console.log('Renderer script is starting...');
 console.log('electronAPI available:', typeof window.electronAPI !== 'undefined');
 console.log('electronStore available:', typeof window.electronStore !== 'undefined');
 console.log('React available:', typeof React !== 'undefined');
-console.log('ReactDOM available:', typeof ReactDOM !== 'undefined');
+console.log('createRoot available:', typeof createRoot !== 'undefined');
 console.log('Document ready state:', document.readyState);
 console.log('Root element exists:', !!document.getElementById('root'));
 
@@ -79,37 +79,43 @@ InstallerConfiguration.obtain()
       console.error('Failed to clean up temp directories:', error);
     });
 
-    ReactDOM.render(
-      <Provider store={store}>
-        <MemoryRouter>
-          <ModalProvider>
-            <App />
-          </ModalProvider>
-        </MemoryRouter>
-      </Provider>,
-      document.getElementById('root'),
-    );
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      const root = createRoot(rootElement);
+      root.render(
+        <Provider store={store}>
+          <MemoryRouter>
+            <ModalProvider>
+              <App />
+            </ModalProvider>
+          </MemoryRouter>
+        </Provider>,
+      );
+    }
   })
   .catch((error: Error) => {
-    ReactDOM.render(
-      <div className="error-container">
-        <span className="error-title">Something went very wrong.</span>
-        <span className="error-description">
-          We could not configure your installer. Please seek support on the Discord #support channel or on GitHub and
-          provide a screenshot of the following information:
-        </span>
-        <pre className="error-stack">{error.stack}</pre>
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      const root = createRoot(rootElement);
+      root.render(
+        <div className="error-container">
+          <span className="error-title">Something went very wrong.</span>
+          <span className="error-description">
+            We could not configure your installer. Please seek support on the Discord #support channel or on GitHub and
+            provide a screenshot of the following information:
+          </span>
+          <pre className="error-stack">{error.stack}</pre>
 
-        <Button
-          type={ButtonType.Neutral}
-          onClick={() => {
-            const api = window.electronAPI as { closeWindow?: () => void } | undefined;
-            api?.closeWindow?.();
-          }}
-        >
-          Close the installer
-        </Button>
-      </div>,
-      document.getElementById('root'),
-    );
+          <Button
+            type={ButtonType.Neutral}
+            onClick={() => {
+              const api = window.electronAPI as { closeWindow?: () => void } | undefined;
+              api?.closeWindow?.();
+            }}
+          >
+            Close the installer
+          </Button>
+        </div>,
+      );
+    }
   });
