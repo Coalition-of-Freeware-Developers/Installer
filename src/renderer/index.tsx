@@ -13,7 +13,6 @@ import { setConfiguration } from './redux/features/configuration';
 import { GitVersions } from 'renderer/utils/AddonData';
 import { addReleases } from 'renderer/redux/features/releaseNotes';
 import { ModalProvider } from 'renderer/components/Modal';
-
 import 'simplebar-react/dist/simplebar.min.css';
 import './index.scss';
 import { Button, ButtonType } from 'renderer/components/Button';
@@ -26,7 +25,7 @@ console.log('Renderer script is starting...');
 console.log('electronAPI available:', typeof window.electronAPI !== 'undefined');
 console.log('electronStore available:', typeof window.electronStore !== 'undefined');
 console.log('React available:', typeof React !== 'undefined');
-console.log('createRoot available:', typeof createRoot !== 'undefined');
+console.log('ReactDOM available:', typeof ReactDOM !== 'undefined');
 console.log('Document ready state:', document.readyState);
 console.log('Root element exists:', !!document.getElementById('root'));
 
@@ -81,8 +80,7 @@ InstallerConfiguration.obtain()
 
     const rootElement = document.getElementById('root');
     if (rootElement) {
-      const root = createRoot(rootElement);
-      root.render(
+      ReactDOM.render(
         <Provider store={store}>
           <MemoryRouter>
             <ModalProvider>
@@ -90,14 +88,14 @@ InstallerConfiguration.obtain()
             </ModalProvider>
           </MemoryRouter>
         </Provider>,
+        rootElement,
       );
     }
   })
   .catch((error: Error) => {
     const rootElement = document.getElementById('root');
     if (rootElement) {
-      const root = createRoot(rootElement);
-      root.render(
+      ReactDOM.render(
         <div className="error-container">
           <span className="error-title">Something went very wrong.</span>
           <span className="error-description">
@@ -116,6 +114,7 @@ InstallerConfiguration.obtain()
             Close the installer
           </Button>
         </div>,
+        rootElement,
       );
     }
   });
