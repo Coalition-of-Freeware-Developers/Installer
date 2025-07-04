@@ -32,7 +32,7 @@ export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
       },
       ...(addon.myInstallPage?.directories ?? []),
     ],
-    [addon.myInstallPage?.directories],
+    [addon.myInstallPage?.directories]
   );
 
   useEffect(() => {
@@ -142,7 +142,9 @@ export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
             {directories.map((it) => (
               <button
                 key={it.title}
-                className={`flex items-center gap-x-5 rounded-md border-2 border-navy-light bg-navy-light px-7 py-4 text-3xl transition-colors duration-100 hover:border-cyan hover:bg-transparent ${directoriesDisabled || !directoryExistence[it.title] ? 'pointer-events-none opacity-60' : ''}`}
+                className={`flex items-center gap-x-5 rounded-md border-2 border-navy-light bg-navy-light px-7 py-4 text-3xl transition-colors duration-100 hover:border-cyan hover:bg-transparent ${
+                  directoriesDisabled || !directoryExistence[it.title] ? 'pointer-events-none opacity-60' : ''
+                }`}
                 onClick={() => handleClickDirectory(it)}
               >
                 <Folder size={24} />

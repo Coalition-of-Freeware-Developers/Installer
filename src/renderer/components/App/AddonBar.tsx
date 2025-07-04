@@ -27,7 +27,7 @@ export const AddonBar: FC = ({ children }) => {
   const publisherData = useAppSelector((state) =>
     state.configuration.publishers.find((pub) => pub.name === publisherName)
       ? state.configuration.publishers.find((pub) => pub.name === publisherName)
-      : state.configuration.publishers[0],
+      : state.configuration.publishers[0]
   );
 
   const PublisherButtons = (buttons: PublisherButton[]) => {
@@ -74,7 +74,7 @@ export const AddonBar: FC = ({ children }) => {
         </SimpleBar>
       </div>
 
-      <div className="flex flex-col gap-y-4 px-6 pb-7">
+      <div className="flex flex-col gap-y-4 px-6 pb-7" style={{ marginBottom: '35px' }}>
         {publisherData.buttons && PublisherButtons(publisherData.buttons)}
       </div>
     </div>
@@ -93,11 +93,15 @@ export const AddonBarItem: FC<AddonBarItemProps> = ({ addon, enabled, selected, 
   const installState = useAppSelector((state) => state.installStatus[addon.key]);
 
   const background = selected ? `bg-dodger-light text-navy-dark` : `bg-transparent text-quasi-white`;
-  const border = `${selected ? 'border-dodger-light' : 'border-navy-light'} ${enabled ? 'hover:border-dodger-light' : ''}`;
+  const border = `${selected ? 'border-dodger-light' : 'border-navy-light'} ${
+    enabled ? 'hover:border-dodger-light' : ''
+  }`;
 
   return (
     <div
-      className={`flex w-full flex-col justify-between rounded-lg border-2 p-6 transition duration-200 ${border} ${background} ${!enabled && 'opacity-50'} ${enabled ? 'cursor-pointer' : 'cursor-not-allowed'} ${className}`}
+      className={`flex w-full flex-col justify-between rounded-lg border-2 p-6 transition duration-200 ${border} ${background} ${
+        !enabled && 'opacity-50'
+      } ${enabled ? 'cursor-pointer' : 'cursor-not-allowed'} ${className}`}
       onClick={enabled ? onClick : undefined}
     >
       <span className="mb-2.5 font-manrope text-2xl font-medium text-current">{addon.aircraftName}</span>
