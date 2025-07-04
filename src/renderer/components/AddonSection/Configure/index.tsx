@@ -90,7 +90,7 @@ export const Configure: FC<ConfigureProps> = ({
 
     if (!aspect) {
       console.error(
-        `Tried to build page for unknown configuration aspect (addon=${selectedAddon.key}, aspectKey=${routeAspectKey})`,
+        `Tried to build page for unknown configuration aspect (addon=${selectedAddon.key}, aspectKey=${routeAspectKey})`
       );
       history.push('/addon-section/:publisher/main/configure/release-track');
       return null;

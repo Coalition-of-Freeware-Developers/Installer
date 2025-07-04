@@ -19,7 +19,7 @@ type TrackProps = {
 
 export const Track: React.FC<TrackProps> = ({ isSelected, isInstalled, handleSelected, addon, track }) => {
   const latestVersionName = useSelector<InstallerStore, string | undefined>(
-    (state) => state.latestVersionNames[addon.key]?.[track.key]?.name,
+    (state) => state.latestVersionNames[addon.key]?.[track.key]?.name
   );
 
   const trackClass = `track-item ${isSelected ? 'track-selected' : ''}`;

@@ -13,12 +13,12 @@ const getPlatform = (): string => {
   if (typeof process !== 'undefined' && process.platform) {
     return process.platform;
   }
-  
+
   // In renderer process, try to get from electronAPI first
   if (typeof globalThis !== 'undefined' && (globalThis as any).window?.electronAPI?.platform) {
     return (globalThis as any).window.electronAPI.platform;
   }
-  
+
   // Fallback for renderer process - detect from user agent
   if (typeof navigator !== 'undefined' && navigator.platform) {
     const platform = navigator.platform.toLowerCase();
@@ -26,7 +26,7 @@ const getPlatform = (): string => {
     if (platform.includes('mac')) return 'darwin';
     if (platform.includes('linux')) return 'linux';
   }
-  
+
   // Default fallback
   return 'win32';
 };
@@ -35,13 +35,13 @@ const getPlatform = (): string => {
 const createSimplePath = () => {
   const isWindows = getPlatform() === 'win32';
   const sep = isWindows ? '\\' : '/';
-  
+
   return {
     join: (...paths: string[]) => {
       return paths
-        .filter(p => p && typeof p === 'string')
-        .map((p, i) => i === 0 ? p.replace(/[/\\]+$/, '') : p.replace(/^[/\\]+/, '').replace(/[/\\]+$/, ''))
-        .filter(p => p.length > 0)
+        .filter((p) => p && typeof p === 'string')
+        .map((p, i) => (i === 0 ? p.replace(/[/\\]+$/, '') : p.replace(/^[/\\]+/, '').replace(/[/\\]+$/, '')))
+        .filter((p) => p.length > 0)
         .join(sep);
     },
     sep,
@@ -143,11 +143,7 @@ export class PlatformUtils {
    */
   static get defaultXPlaneInstallPaths(): string[] {
     if (this.isWindows) {
-      return [
-        'C:\\X-Plane 12',
-        'C:\\Program Files\\X-Plane 12',
-        'C:\\Program Files (x86)\\X-Plane 12',
-      ];
+      return ['C:\\X-Plane 12', 'C:\\Program Files\\X-Plane 12', 'C:\\Program Files (x86)\\X-Plane 12'];
     } else if (this.isMac) {
       return [
         '/Applications/X-Plane 12',
@@ -175,7 +171,10 @@ export class PlatformUtils {
       ];
     } else if (this.isMac) {
       return [
-        pathLib.join(process.env.HOME || '/Users/user', 'Library/Application Support/Steam/steamapps/common/X-Plane 12'),
+        pathLib.join(
+          process.env.HOME || '/Users/user',
+          'Library/Application Support/Steam/steamapps/common/X-Plane 12'
+        ),
         '/Applications/Steam.app/Contents/MacOS/steamapps/common/X-Plane 12',
       ];
     } else {
@@ -218,7 +217,9 @@ export class PlatformUtils {
    */
   static get documentsDirectory(): string {
     if (this.isWindows) {
-      return process.env.USERPROFILE ? pathLib.join(process.env.USERPROFILE, 'Documents') : 'C:\\Users\\User\\Documents';
+      return process.env.USERPROFILE
+        ? pathLib.join(process.env.USERPROFILE, 'Documents')
+        : 'C:\\Users\\User\\Documents';
     } else {
       return pathLib.join(process.env.HOME || (this.isMac ? '/Users/user' : '/home/user'), 'Documents');
     }
@@ -253,21 +254,27 @@ export class PlatformUtils {
    * Check if a path is absolute
    */
   static isAbsolutePath(inputPath: string): boolean {
-    return pathLib.isAbsolute ? pathLib.isAbsolute(inputPath) : inputPath.startsWith('/') || /^[a-zA-Z]:/.test(inputPath);
+    return pathLib.isAbsolute
+      ? pathLib.isAbsolute(inputPath)
+      : inputPath.startsWith('/') || /^[a-zA-Z]:/.test(inputPath);
   }
 
   /**
    * Get the directory name from a path
    */
   static dirname(inputPath: string): string {
-    return pathLib.dirname ? pathLib.dirname(inputPath) : inputPath.substring(0, Math.max(inputPath.lastIndexOf('/'), inputPath.lastIndexOf('\\')));
+    return pathLib.dirname
+      ? pathLib.dirname(inputPath)
+      : inputPath.substring(0, Math.max(inputPath.lastIndexOf('/'), inputPath.lastIndexOf('\\')));
   }
 
   /**
    * Get the base name from a path
    */
   static basename(inputPath: string, ext?: string): string {
-    const name = pathLib.basename ? pathLib.basename(inputPath, ext) : inputPath.substring(Math.max(inputPath.lastIndexOf('/'), inputPath.lastIndexOf('\\')) + 1);
+    const name = pathLib.basename
+      ? pathLib.basename(inputPath, ext)
+      : inputPath.substring(Math.max(inputPath.lastIndexOf('/'), inputPath.lastIndexOf('\\')) + 1);
     return ext && name.endsWith(ext) ? name.substring(0, name.length - ext.length) : name;
   }
 
