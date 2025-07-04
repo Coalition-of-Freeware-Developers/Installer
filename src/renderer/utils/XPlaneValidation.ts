@@ -2,13 +2,93 @@ import { join, normalize } from 'renderer/stubs/path';
 import ipcFs from 'renderer/utils/IPCFileSystem';
 import settings from 'renderer/rendererSettings';
 
+// Platform detection for renderer process
+const getPlatform = (): 'win32' | 'darwin' | 'linux' | 'unknown' => {
+  // Try to get platform from electron API
+  if (typeof globalThis !== 'undefined' && (globalThis as any).electronAPI?.platform) {
+    return (globalThis as any).electronAPI.platform;
+  }
+  
+  // Try to detect from user agent or other browser APIs
+  if (typeof navigator !== 'undefined' && navigator.platform) {
+    const platform = navigator.platform.toLowerCase();
+    if (platform.includes('win')) return 'win32';
+    if (platform.includes('mac')) return 'darwin';
+    if (platform.includes('linux')) return 'linux';
+  }
+  
+  // Fallback to process if available
+  if (typeof process !== 'undefined' && process.platform) {
+    return process.platform as 'win32' | 'darwin' | 'linux';
+  }
+  
+  return 'unknown';
+};
+
+const currentPlatform = getPlatform();
+
+/**
+ * Get X-Plane executable name for the current platform
+ */
+const getXPlaneExecutableName = (): string => {
+  switch (currentPlatform) {
+    case 'win32':
+      return 'X-Plane.exe';
+    case 'darwin':
+      return 'X-Plane.app';
+    case 'linux':
+      return 'X-Plane';
+    default:
+      return 'X-Plane.exe'; // Default to Windows
+  }
+};
+
+/**
+ * Get alternative X-Plane executable names for the current platform
+ */
+const getXPlaneAlternativeNames = (): string[] => {
+  switch (currentPlatform) {
+    case 'win32':
+      return ['X-Plane 12.exe', 'X-Plane12.exe', 'xplane.exe', 'x-plane.exe'];
+    case 'darwin':
+      return ['X-Plane 12.app', 'X-Plane12.app'];
+    case 'linux':
+      return ['X-Plane-12', 'X-Plane12', 'xplane', 'x-plane'];
+    default:
+      return ['X-Plane 12.exe', 'X-Plane12.exe', 'xplane.exe', 'x-plane.exe'];
+  }
+};
+
+/**
+ * Check if a path represents an invalid or root directory
+ */
+const isInvalidPath = (path: string): boolean => {
+  if (!path || path.trim() === '' || path === 'notInstalled') {
+    return true;
+  }
+  
+  const trimmedPath = path.trim();
+  
+  // Check for root directories on different platforms
+  const rootPaths = [
+    'C:\\',           // Windows root
+    '/',              // Unix/Linux root
+    '/System',        // macOS system directory
+    '/Applications',  // macOS apps directory (too broad)
+    '/Users',         // macOS users directory (too broad)
+    '/home',          // Linux home directory (too broad)
+  ];
+  
+  return rootPaths.includes(trimmedPath) || trimmedPath.endsWith('\\') || trimmedPath.endsWith('/');
+};
+
 export class XPlaneValidation {
   /**
    * Validates that a given path is a valid X-Plane 12 installation
-   * by checking for the presence of X-Plane.exe
+   * by checking for the presence of the X-Plane executable
    */
   static async isValidXPlaneBasePath(path: string): Promise<boolean> {
-    if (!path || path.trim() === '' || path === 'C:\\' || path === 'notInstalled') {
+    if (isInvalidPath(path)) {
       console.log(`[XPlaneValidation] Invalid or empty path provided: "${path}"`);
       return false;
     }
@@ -27,34 +107,21 @@ export class XPlaneValidation {
         return false;
       }
 
-      // Check for X-Plane.exe in the base directory
-      const xplaneExePath = join(normalizedPath, 'X-Plane.exe');
-      console.log(`[XPlaneValidation] Checking for X-Plane.exe at: "${xplaneExePath}"`);
+      // Check for the primary X-Plane executable
+      const primaryExecutable = getXPlaneExecutableName();
+      const xplaneExePath = join(normalizedPath, primaryExecutable);
+      console.log(`[XPlaneValidation] Checking for ${primaryExecutable} at: "${xplaneExePath}"`);
 
       const xplaneExeExists = await ipcFs.existsSync(xplaneExePath);
-      console.log(`[XPlaneValidation] X-Plane.exe exists: ${xplaneExeExists}`);
+      console.log(`[XPlaneValidation] ${primaryExecutable} exists: ${xplaneExeExists}`);
 
       if (xplaneExeExists) {
         console.log(`[XPlaneValidation] ✓ Valid X-Plane 12 installation found at: ${normalizedPath}`);
         return true;
       }
 
-      // Also check for X-Plane (no .exe extension) for potential Linux/Mac compatibility
-      const xplaneAltPath = join(normalizedPath, 'X-Plane');
-      console.log(`[XPlaneValidation] Checking for X-Plane (no .exe) at: "${xplaneAltPath}"`);
-
-      const xplaneAltExists = await ipcFs.existsSync(xplaneAltPath);
-      console.log(`[XPlaneValidation] X-Plane (no .exe) exists: ${xplaneAltExists}`);
-
-      if (xplaneAltExists) {
-        console.log(
-          `[XPlaneValidation] ✓ Valid X-Plane 12 installation found at: ${normalizedPath} (Linux/Mac variant)`,
-        );
-        return true;
-      }
-
-      // Check common alternative names for X-Plane executable (case-insensitive)
-      const alternativeNames = ['X-Plane 12.exe', 'X-Plane12.exe', 'xplane.exe', 'x-plane.exe'];
+      // Check alternative executable names
+      const alternativeNames = getXPlaneAlternativeNames();
       for (const altName of alternativeNames) {
         const altPath = join(normalizedPath, altName);
         console.log(`[XPlaneValidation] Checking alternative name: "${altPath}"`);
@@ -88,7 +155,7 @@ export class XPlaneValidation {
    * by simply checking if the directory exists
    */
   static async isValidAircraftDirectory(path: string): Promise<boolean> {
-    if (!path || path.trim() === '' || path === 'C:\\') {
+    if (isInvalidPath(path)) {
       console.log(`[XPlaneValidation] Invalid or empty aircraft path provided: "${path}"`);
       return false;
     }
@@ -119,7 +186,7 @@ export class XPlaneValidation {
    * Validates that a given path is a valid custom scenery directory
    */
   static async isValidCustomSceneryDirectory(path: string): Promise<boolean> {
-    if (!path || path.trim() === '' || path === 'C:\\') {
+    if (isInvalidPath(path)) {
       console.log(`[XPlaneValidation] Invalid or empty custom scenery path provided: "${path}"`);
       return false;
     }
@@ -148,7 +215,7 @@ export class XPlaneValidation {
    * Validates that a given path is a valid plugins directory
    */
   static async isValidPluginsDirectory(path: string): Promise<boolean> {
-    if (!path || path.trim() === '' || path === 'C:\\') {
+    if (isInvalidPath(path)) {
       console.log(`[XPlaneValidation] Invalid or empty plugins path provided: "${path}"`);
       return false;
     }
@@ -177,7 +244,7 @@ export class XPlaneValidation {
    * Validates that a given path is a valid custom data directory
    */
   static async isValidCustomDataDirectory(path: string): Promise<boolean> {
-    if (!path || path.trim() === '' || path === 'C:\\') {
+    if (isInvalidPath(path)) {
       console.log(`[XPlaneValidation] Invalid or empty custom data path provided: "${path}"`);
       return false;
     }

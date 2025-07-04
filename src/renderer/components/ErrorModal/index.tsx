@@ -140,9 +140,10 @@ export const ErrorModal = (): React.JSX.Element => {
   };
 
   const content = (): React.JSX.Element => {
-    // Linux's error goes first because it may interfere with the other dir checkers
-    // For now, we'll assume non-Linux platform since this is primarily a Windows/X-Plane focused installer
-    const isLinux = false; // TODO: Implement proper platform detection via IPC
+    // Get platform information from electronAPI
+    const platform = window?.electronAPI?.platform || 'unknown';
+    const isLinux = platform === 'linux';
+    
     if (isLinux) {
       if (xplaneBasePathError) {
         return (

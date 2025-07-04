@@ -122,8 +122,8 @@ function initializeApp() {
       console.log(`[RENDERER] ${level}: ${message} at ${sourceId}:${line}`);
     });
 
-    mainWindow.webContents.on('crashed', (event, killed) => {
-      console.error('Renderer process crashed:', { event, killed });
+    mainWindow.webContents.on('render-process-gone', (event, details) => {
+      console.error('Renderer process crashed:', { event, details });
     });
 
     mainWindow.webContents.on('unresponsive', () => {
@@ -651,9 +651,9 @@ function initializeApp() {
   });
 
   app.on('activate', () => {
-    // On OS X it's common to re-create a window in the app when the
+    // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (process.platform === 'darwin' && BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });

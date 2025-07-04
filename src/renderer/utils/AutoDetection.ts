@@ -1,6 +1,7 @@
 import { SteamDetection } from 'renderer/utils/SteamDetection';
 import { XPlaneValidation } from 'renderer/utils/XPlaneValidation';
 import settings, { defaultAircraftDir } from 'renderer/rendererSettings';
+import { PlatformUtils } from 'common/PlatformUtils';
 
 /**
  * Utility class for automatically detecting X-Plane installations on startup
@@ -48,13 +49,7 @@ export class AutoDetection {
 
       // Try standard installation paths
       console.log('[AutoDetection] Attempting standard installation detection');
-      const standardPaths = [
-        'C:\\X-Plane 12',
-        'C:\\Program Files\\X-Plane 12',
-        'C:\\Program Files (x86)\\X-Plane 12',
-        'D:\\X-Plane 12',
-        'E:\\X-Plane 12',
-      ];
+      const standardPaths = PlatformUtils.defaultXPlaneInstallPaths;
 
       for (const path of standardPaths) {
         console.log(`[AutoDetection] Checking standard path: ${path}`);

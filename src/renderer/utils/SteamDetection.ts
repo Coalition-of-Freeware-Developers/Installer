@@ -1,5 +1,6 @@
 import ipcFs from 'renderer/utils/IPCFileSystem';
 import { XPlaneValidation } from 'renderer/utils/XPlaneValidation';
+import { PlatformUtils } from 'common/PlatformUtils';
 
 /**
  * Utility class for detecting Steam installations of X-Plane 12
@@ -40,16 +41,8 @@ export class SteamDetection {
   static async findSteamXPlane12Fallback(): Promise<string | null> {
     console.log('[SteamDetection] Using fallback Steam detection method');
 
-    const commonSteamPaths = [
-      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\X-Plane 12',
-      'C:\\Program Files\\Steam\\steamapps\\common\\X-Plane 12',
-      'D:\\Steam\\steamapps\\common\\X-Plane 12',
-      'E:\\Steam\\steamapps\\common\\X-Plane 12',
-      'F:\\Steam\\steamapps\\common\\X-Plane 12',
-      // Add more common drive letters for Steam libraries
-      'G:\\Steam\\steamapps\\common\\X-Plane 12',
-      'H:\\Steam\\steamapps\\common\\X-Plane 12',
-    ];
+    // Use platform-specific Steam paths from PlatformUtils
+    const commonSteamPaths = PlatformUtils.steamInstallPaths;
 
     for (const steamPath of commonSteamPaths) {
       try {

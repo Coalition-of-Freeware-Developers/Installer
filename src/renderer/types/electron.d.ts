@@ -1,5 +1,9 @@
 // Electron API types exposed via preload script
 interface ElectronAPI {
+  // Platform information
+  platform: 'win32' | 'darwin' | 'linux' | string;
+  arch: string;
+  
   // Window controls
   minimizeWindow: () => void;
   maximizeWindow: () => void;

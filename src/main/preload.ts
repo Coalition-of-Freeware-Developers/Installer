@@ -23,17 +23,17 @@ if (typeof globalThis.window !== 'undefined') {
     windowWithGlobals.module = {};
   }
 
-  // Comprehensive process polyfill
+  // Comprehensive process polyfill - use actual platform from main process
   if (typeof windowWithGlobals.process === 'undefined') {
     windowWithGlobals.process = {
-      platform: 'win32',
+      platform: process?.platform || 'unknown',
       env: {},
       argv: [],
       version: '',
       versions: {} as Record<string, string>,
       pid: 0,
       title: '',
-      arch: 'x64',
+      arch: process?.arch || 'x64',
       cwd: () => '',
       chdir: () => {},
       nextTick: (callback: () => void) => globalThis.setTimeout(callback, 0),
@@ -61,6 +61,10 @@ if (typeof globalThis.window !== 'undefined') {
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 const electronAPI = {
+  // Platform information
+  platform: process.platform,
+  arch: process.arch,
+  
   // Window controls
   minimizeWindow: () => ipcRenderer.send(channels.window.minimize),
   maximizeWindow: () => ipcRenderer.send(channels.window.maximize),

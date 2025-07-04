@@ -1,11 +1,27 @@
 import { ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 /**
  * Steam detection utilities using steam-locate package
  */
 export class SteamDetectionMain {
+  /**
+   * Get X-Plane executable name for the current platform
+   */
+  private static getXPlaneExecutable(): string {
+    switch (process.platform) {
+      case 'win32':
+        return 'X-Plane.exe';
+      case 'darwin':
+        return 'X-Plane.app';
+      case 'linux':
+        return 'X-Plane';
+      default:
+        return 'X-Plane.exe';
+    }
+  }
   /**
    * Find X-Plane 12 installation through Steam using steam-locate
    */
@@ -45,15 +61,15 @@ export class SteamDetectionMain {
           // Check if the directory exists
           const stats = await fs.promises.stat(xplanePath);
           if (stats.isDirectory()) {
-            // Check for X-Plane.exe to confirm it's a valid installation
-            const xplaneExe = path.join(xplanePath, 'X-Plane.exe');
+            // Check for X-Plane executable to confirm it's a valid installation
+            const xplaneExe = path.join(xplanePath, this.getXPlaneExecutable());
             const xplaneExeStats = await fs.promises.stat(xplaneExe);
 
-            if (xplaneExeStats.isFile()) {
+            if (xplaneExeStats.isFile() || (process.platform === 'darwin' && xplaneExeStats.isDirectory())) {
               console.log(`[SteamDetectionMain] ✓ Found valid Steam X-Plane 12 at: ${xplanePath}`);
               return xplanePath;
             } else {
-              console.log(`[SteamDetectionMain] ✗ X-Plane.exe not found at: ${xplanePath}`);
+              console.log(`[SteamDetectionMain] ✗ X-Plane executable not found at: ${xplanePath}`);
             }
           }
         } catch (error) {
@@ -68,10 +84,10 @@ export class SteamDetectionMain {
       try {
         const stats = await fs.promises.stat(mainSteamXPlanePath);
         if (stats.isDirectory()) {
-          const xplaneExe = path.join(mainSteamXPlanePath, 'X-Plane.exe');
+          const xplaneExe = path.join(mainSteamXPlanePath, this.getXPlaneExecutable());
           const xplaneExeStats = await fs.promises.stat(xplaneExe);
 
-          if (xplaneExeStats.isFile()) {
+          if (xplaneExeStats.isFile() || (process.platform === 'darwin' && xplaneExeStats.isDirectory())) {
             console.log(`[SteamDetectionMain] ✓ Found valid Steam X-Plane 12 at main path: ${mainSteamXPlanePath}`);
             return mainSteamXPlanePath;
           }

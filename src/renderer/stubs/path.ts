@@ -1,8 +1,29 @@
 // Path utilities for renderer process
 // This provides path functionality that works in the browser environment
 
-// Detect platform (Windows vs Unix-like) - default to Windows for X-Plane context
-const isWindows = true; // X-Plane is primarily Windows-focused
+// Detect platform dynamically - try to use navigator if available
+const detectPlatform = (): boolean => {
+  // Try to detect platform from user agent or other browser APIs
+  if (typeof navigator !== 'undefined' && navigator.platform) {
+    return navigator.platform.toLowerCase().includes('win');
+  }
+  
+  // Try to detect from global process if available
+  if (typeof globalThis !== 'undefined' && (globalThis as any).process?.platform) {
+    return (globalThis as any).process.platform === 'win32';
+  }
+  
+  // Default to current environment - will be overridden by main process
+  return process?.platform === 'win32' || false;
+};
+
+// Platform detection - can be overridden by main process
+let isWindows = detectPlatform();
+
+// Allow platform override from main process
+if (typeof globalThis !== 'undefined' && (globalThis as any).electronAPI?.platform) {
+  isWindows = (globalThis as any).electronAPI.platform === 'win32';
+}
 
 export const join = (...paths: string[]): string => {
   // Handle Windows and Unix paths

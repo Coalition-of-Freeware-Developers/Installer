@@ -11,10 +11,25 @@
   "main": "out/main/index.js",
   "scripts": {
     "generate-licenses": "node scripts/licenses.js",
+    "platform-check": "node scripts/build-platform-check.js",
+    "dev-platform": "node scripts/dev-platform.js",
     "start": "electron-vite",
     "dev": "electron-vite dev",
+    "dev:win": "node scripts/dev-platform.js win32 dev",
+    "dev:mac": "node scripts/dev-platform.js darwin dev",
+    "dev:linux": "node scripts/dev-platform.js linux dev",
     "build": "npm run generate-licenses && electron-vite build",
-    "package": "npm run build && electron-builder --win --publish=never",
+    "package": "npm run platform-check && npm run build && electron-builder --win --publish=never",
+    "package:win": "BUILD_PLATFORM=win32 npm run platform-check && npm run build && electron-builder --win --publish=never",
+    "package:mac": "BUILD_PLATFORM=darwin npm run platform-check && npm run build && electron-builder --mac --publish=never",
+    "package:linux": "BUILD_PLATFORM=linux npm run platform-check && npm run build && electron-builder --linux --publish=never",
+    "package:all": "npm run platform-check && npm run build && electron-builder --win --mac --linux --publish=never",
+    "package:current": "npm run platform-check && npm run build && electron-builder --publish=never",
+    "dist": "npm run platform-check && npm run build && electron-builder --publish=always",
+    "dist:win": "BUILD_PLATFORM=win32 npm run platform-check && npm run build && electron-builder --win --publish=always",
+    "dist:mac": "BUILD_PLATFORM=darwin npm run platform-check && npm run build && electron-builder --mac --publish=always",
+    "dist:linux": "BUILD_PLATFORM=linux npm run platform-check && npm run build && electron-builder --linux --publish=always",
+    "dist:current": "npm run platform-check && npm run build && electron-builder --publish=always",
     "lint": "eslint --ext .ts,.tsx .",
     "lint:fix": "eslint --fix --ext .ts,.tsx ."
   },
@@ -26,15 +41,98 @@
       "./extraResources/**"
     ],
     "appId": "com.coalition-installer",
+    "productName": "Coalition Installer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
     "nsis": {
       "include": "scripts/installer.nsh",
-      "artifactName": "Coalition_Installer_Setup.${ext}"
+      "artifactName": "Coalition_Installer_Setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64", "ia32"]
+        }
+      ],
       "icon": "src/main/icons/icon.ico",
       "files": [
         "out/**/*"
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "src/main/icons/icon.icns",
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "rpm",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "tar.gz",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "src/main/icons/icon.png",
+      "category": "Utility",
+      "synopsis": "X-Plane 12 addon installer and manager",
+      "description": "Desktop application to install and customize X-Plane 12 addons from the Coalition of Freeware Developers"
+    },
+    "dmg": {
+      "title": "Coalition Installer",
+      "icon": "src/main/icons/icon.icns",
+      "background": "build/dmg-background.png",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   },
@@ -106,7 +204,6 @@
     "@reduxjs/toolkit": "^1.9.7",
     "@tanstack/react-virtual": "^3.13.12",
     "@types/js-yaml": "^4.0.9",
-    "@types/winreg": "^1.2.36",
     "@types/ws": "^8.18.1",
     "buffer": "^6.0.3",
     "check-disk-space": "^3.4.0",
@@ -140,7 +237,6 @@
     "styled-components": "^5.3.11",
     "tabler-icons-react": "^1.56.0",
     "walkdir": "^0.4.1",
-    "winreg": "^1.2.5",
     "ws": "^8.18.3"
   },
   "lint-staged": {
@@ -150,6 +246,7 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.9",
-    "utf-8-validate": "^6.0.5"
+    "utf-8-validate": "^6.0.5",
+    "winreg": "^1.2.5"
   }
 }

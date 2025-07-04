@@ -2,6 +2,7 @@ import { normalize, join } from 'renderer/stubs/path';
 import { Addon } from 'renderer/utils/InstallerConfiguration';
 import ipcFs from 'renderer/utils/IPCFileSystem';
 import settings from 'renderer/rendererSettings';
+import { PlatformUtils } from 'common/PlatformUtils';
 
 // Simplified types
 type WindowWithElectron = typeof globalThis & {
@@ -9,6 +10,7 @@ type WindowWithElectron = typeof globalThis & {
     remote?: {
       getAppPath?: (name: string) => Promise<string>;
     };
+    platform?: string;
   };
 };
 
@@ -19,12 +21,17 @@ const _getAppPath = async (name: string): Promise<string> => {
   if (win.electronAPI?.remote?.getAppPath) {
     return await win.electronAPI.remote.getAppPath(name);
   }
-  // Fallback for development/testing
+  // Fallback for development/testing - use platform-aware defaults
+  const platform = win.electronAPI?.platform || 'win32';
   switch (name) {
     case 'appData':
-      return 'C:\\Users\\User\\AppData\\Roaming';
+      return platform === 'win32' ? 'C:\\Users\\User\\AppData\\Roaming' :
+             platform === 'darwin' ? '/Users/user/Library/Application Support' :
+             '/home/user/.config';
     case 'documents':
-      return 'C:\\Users\\User\\Documents';
+      return platform === 'win32' ? 'C:\\Users\\User\\Documents' :
+             platform === 'darwin' ? '/Users/user/Documents' :
+             '/home/user/Documents';
     default:
       return '';
   }
