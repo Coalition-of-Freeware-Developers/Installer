@@ -8,7 +8,7 @@
     "sourceMap": true,
     "baseUrl": ".",
     "outDir": "dist",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "lib": ["ESNext", "DOM"],
     "target": "ES6",
