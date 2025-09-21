@@ -32,7 +32,7 @@ export const MyInstall: FC<MyInstallProps> = ({ addon }) => {
       },
       ...(addon.myInstallPage?.directories ?? []),
     ],
-    [addon.myInstallPage?.directories]
+    [addon.myInstallPage?.directories],
   );
 
   useEffect(() => {

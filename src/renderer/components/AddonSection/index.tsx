@@ -75,7 +75,7 @@ export const AddonSection = (): JSX.Element => {
   const publisherData = useAppSelector((state) =>
     state.configuration.publishers.find((pub) => pub.name === publisherName)
       ? state.configuration.publishers.find((pub) => pub.name === publisherName)
-      : state.configuration.publishers[0]
+      : state.configuration.publishers[0],
   );
 
   const [selectedAddon, setSelectedAddon] = useState<Addon>(() => {
@@ -149,13 +149,13 @@ export const AddonSection = (): JSX.Element => {
     (newSelectedTrack: AddonTrack) => {
       dispatch(setSelectedTrack({ addonKey: selectedAddon.key, track: newSelectedTrack }));
     },
-    [dispatch, selectedAddon.key]
+    [dispatch, selectedAddon.key],
   );
 
   const selectedTrack = (selectedTracks[selectedAddon.key] as AddonTrack) ?? null;
 
   const download: DownloadItem = useSelector((state: InstallerStore) =>
-    state.downloads.find((download) => download.id === selectedAddon.key)
+    state.downloads.find((download) => download.id === selectedAddon.key),
   );
 
   const isDownloading = download?.progress.totalPercent >= 0;
@@ -202,7 +202,7 @@ export const AddonSection = (): JSX.Element => {
               setApplicationStatus({
                 applicationName: app.key,
                 applicationStatus: state ? ApplicationStatus.Open : ApplicationStatus.Closed,
-              })
+              }),
             );
           } catch (error) {
             console.error('Error processing external app:', app.key, error);
@@ -255,7 +255,7 @@ export const AddonSection = (): JSX.Element => {
               void InstallManager.refreshAddonInstallState(selectedAddon);
             }}
             dontShowAgainSettingName="mainSettings.disableExperimentalWarning"
-          />
+          />,
         );
       } else {
         setCurrentlySelectedTrack(track);
@@ -343,7 +343,7 @@ export const AddonSection = (): JSX.Element => {
                 ?.filter((it) => it.kind === 'addonCategory')
                 .map((category: AddonCategoryDefinition) => {
                   const categoryAddons = publisherData.addons.filter(
-                    (it) => it.category?.substring(1) === category.key
+                    (it) => it.category?.substring(1) === category.key,
                   );
 
                   if (categoryAddons.length === 0) {
@@ -405,7 +405,7 @@ export const AddonSection = (): JSX.Element => {
                   style={{
                     height: '44vh',
                     backgroundImage:
-                      selectedAddon.backgroundImageShadow ?? true
+                      (selectedAddon.backgroundImageShadow ?? true)
                         ? `linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.3)), url(${selectedAddon.backgroundImageUrls[0]})`
                         : `url(${selectedAddon.backgroundImageUrls[0]})`,
                     backgroundPosition: 'center center',

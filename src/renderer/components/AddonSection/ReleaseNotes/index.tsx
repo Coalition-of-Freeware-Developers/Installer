@@ -70,7 +70,7 @@ export const ReleaseNotes = ({ addon }: { addon: Addon }): JSX.Element => {
             release={release}
           />
         ))}
-      </div>
+      </div>,
     );
   }, [ref, releaseNotes]);
 

@@ -27,7 +27,7 @@ export const AddonBar: FC = ({ children }) => {
   const publisherData = useAppSelector((state) =>
     state.configuration.publishers.find((pub) => pub.name === publisherName)
       ? state.configuration.publishers.find((pub) => pub.name === publisherName)
-      : state.configuration.publishers[0]
+      : state.configuration.publishers[0],
   );
 
   const PublisherButtons = (buttons: PublisherButton[]) => {
